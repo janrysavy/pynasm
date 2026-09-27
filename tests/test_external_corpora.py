@@ -13,7 +13,7 @@ from pynasm import Assembler, AssemblyError
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
-NASM = os.environ.get("NASM") or shutil.which("nasm")
+NASM = os.environ.get("NASM", shutil.which("nasm"))
 INDEPENDENT = os.environ.get("PYNASM_INDEPENDENT_CORPUS")
 INDEPENDENT_COMMIT = "1979e794d1cbcd92714d0863a2fd17fd89af4fcd"
 

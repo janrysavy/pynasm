@@ -1,0 +1,23 @@
+name: Python assembler tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run assembler tests and pinned corpora
+        env:
+          # Goldens are pinned; do not use an arbitrary runner NASM as oracle.
+          NASM: ''
+        run: python -m unittest discover -s tests

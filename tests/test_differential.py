@@ -14,7 +14,7 @@ from pathlib import Path
 from pynasm import AssemblyError, assemble
 
 
-NASM = os.environ.get("NASM") or shutil.which("nasm")
+NASM = os.environ.get("NASM", shutil.which("nasm"))
 
 
 def instruction_cases():

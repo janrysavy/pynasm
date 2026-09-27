@@ -1,0 +1,2 @@
+# Reference inputs and expected binary outputs must retain their original bytes.
+tests/fixtures/** -text
