@@ -7,6 +7,7 @@ from ._preprocessor_macros import MacroExpansionMixin
 from ._preprocessor_directives import PreprocessorDirectiveMixin
 from ._preprocessor_source import SourceReaderMixin
 from ._instruction_encoding import InstructionEncodingMixin
+from .listing import ListingLine
 
 
 class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMixin, InstructionEncodingMixin):
@@ -93,6 +94,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self._stacksize_explicit = False
         self._deferred_args: list[tuple[str, int]] = []
         self._last_sizes: list[int] = []
+        self.listing: tuple[ListingLine, ...] = ()
 
     def _error(self, message: str) -> AssemblyError:
         return AssemblyError(message, self._line.filename, self._line.number)
@@ -434,6 +436,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         return bytes(output), sizes
 
     def assemble(self, source: str, *, filename: str = "<string>") -> bytes:
+        self.listing = ()
         self._previous = {}
         self._previous_symbol_sections = {}
         self._previous_symbol_relocations = {}
@@ -588,6 +591,18 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     filename, line = self._range_errors[0]
                     raise AssemblyError("short jump is out of range", filename, line)
                 if self._section_overlap: raise self._error("binary sections overlap")
+                records = []
+                for line, (address, name), size in zip(self._lines, self._line_positions, sizes):
+                    section = self._sections.get(name)
+                    offset = address - section.base if section is not None else address
+                    file_offset = (section.file_start + offset
+                                   if section is not None and not section.nobits and size else None)
+                    data = output[file_offset:file_offset + size] if file_offset is not None else b""
+                    if file_offset is not None and (file_offset < 0 or len(data) != size):
+                        raise self._error("listing extent outside assembled output")
+                    records.append(ListingLine(line.filename, line.number, line.text, name,
+                                               offset, address, file_offset, size, data))
+                self.listing = tuple(records)
                 return output
             self._previous = dict(self.symbols)
             self._previous_symbol_sections = dict(self._symbol_sections)
