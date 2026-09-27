@@ -11,3 +11,8 @@ not implemented by this slice. Keep output separate from included input files.
 
 Local validation: 142 tests ran, 123 passed and 19 optional tests skipped.
 CLI regressions include hard-link protection and simulated partial-write cleanup.
+
+The first Windows CI run exposed CRLF conversion of binary goldens and an
+incompatible preinstalled NASM oracle. Fixtures now disable Git text conversion;
+CI explicitly disables live NASM discovery with an empty NASM variable. Live
+differential tests require the documented NASM 3.02 reference executable.

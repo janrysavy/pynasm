@@ -65,6 +65,9 @@ python -m unittest discover -s tests
 The suite includes pinned NASM and mininasm binaries. Live differential tests
 need a separate NASM installation. See the [test plan](doc/TESTS.md) for those
 commands and the [progress tracker](doc/PROGRESS.md) for the current status.
+CI runs Python 3.12 on Windows and Linux against the pinned corpora, setting
+`NASM` to an empty string to disable discovery of unpinned runner executables.
+For live differential tests, set `NASM` to a NASM 3.02 executable path.
 The [future test roadmap](doc/FUTURE_TESTS.md) lists the remaining work in
 priority order.
 The original design discussion is in [PLAN.md](doc/PLAN.md).
