@@ -1,0 +1,326 @@
+"""NASM-style integer expressions. Values are Python integers until emitted."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from typing import Callable
+
+
+class ExpressionError(ValueError):
+    pass
+
+
+_TOKEN = re.compile(
+    r"\s*(<=>|<<<|>>>|<<|>>|//|%%|==|!=|<>|<=|>=|&&|\|\||\^\^|\$\$|"
+    r"\$[0-9a-fA-F_]+(?![\w.$?@~#])|\$[A-Za-z_.$?@][\w.$?@~#]*|\?(?![\w.$?@~#])|[()+\-*/%&|^~<>:$!=]|[A-Za-z_.$?@][\w.$?@~#]*|"
+    r"[0-9][0-9a-zA-Z_]*|"
+    r"'[^']*'|\"[^\"]*\"|`(?:[^`\\]|\\.)*`)"
+)
+
+_PRECEDENCE = {
+    "||": 1, "^^": 2, "&&": 3,
+    "=": 4, "==": 4, "!=": 4, "<>": 4, "<": 4, "<=": 4,
+    ">": 4, ">=": 4, "<=>": 4,
+    "|": 5, "^": 6, "&": 7,
+    "<<": 8, "<<<": 8, ">>": 8, ">>>": 8,
+    "+": 9, "-": 9,
+    "*": 10, "/": 10, "//": 10, "%": 10, "%%": 10,
+}
+
+
+def _number(token: str, *, dollarhex: bool = True) -> int | None:
+    s = token.replace("_", "")
+    if not s: return None
+    try:
+        if (dollarhex and s.startswith("$") and len(s) > 1 and s[1].isdigit() and
+                all(c in "0123456789abcdefABCDEF" for c in s[1:])):
+            return int(s[1:], 16)
+        prefix_bases = {"x": 16, "h": 16, "b": 2, "y": 2,
+                        "o": 8, "q": 8, "d": 10, "t": 10}
+        suffix_bases = {"x": 16, "h": 16, "b": 2, "y": 2,
+                        "o": 8, "q": 8, "d": 10, "t": 10}
+        if len(s) >= 2 and s[0] == "0" and s[1].lower() in prefix_bases:
+            base = prefix_bases[s[1].lower()]
+            digits = s[2:] or "0"
+            if all(c.lower() in "0123456789abcdef"[:base] for c in digits):
+                return int(digits, base)
+        if len(s) >= 2 and s[-1].lower() in suffix_bases and s[0].isdigit():
+            base = suffix_bases[s[-1].lower()]
+            digits = s[:-1]
+            if all(c.lower() in "0123456789abcdef"[:base] for c in digits):
+                return int(digits, base)
+        if s.isdecimal():
+            return int(s)
+    except ValueError:
+        raise ExpressionError(f"invalid number {token!r}") from None
+    if s[0].isdigit():
+        raise ExpressionError(f"invalid number {token!r}")
+    return None
+
+
+@dataclass(frozen=True)
+class Value:
+    number: int
+    unresolved: bool = False
+    symbolic: bool = False
+    section: str | None = None
+    relocation: int = 0
+
+
+def string_bytes(token: str) -> bytes:
+    if len(token) < 2 or token[-1] != token[0] or token[0] not in "'\"`":
+        raise ExpressionError("invalid string literal")
+    if token[0] == "`":
+        try:
+            return token[1:-1].encode("latin-1").decode("unicode_escape").encode("latin-1")
+        except (UnicodeError, ValueError) as exc:
+            raise ExpressionError(f"invalid string escape: {exc}") from exc
+    return token[1:-1].encode("latin-1")
+
+
+def _apply(op: str, a: int, b: int) -> int:
+    def u64(value: int) -> int: return value & 0xFFFFFFFFFFFFFFFF
+    def s64(value: int) -> int:
+        value = u64(value)
+        return value - 0x10000000000000000 if value & 0x8000000000000000 else value
+    if op == "+": return a + b
+    if op == "-": return a - b
+    if op == "*": return a * b
+    if op == "/":
+        if u64(b) == 0: raise ExpressionError("division by zero")
+        return u64(a) // u64(b)
+    if op == "//":
+        if u64(b) == 0: raise ExpressionError("division by zero")
+        a, b = s64(a), s64(b)
+        return (abs(a) // abs(b)) * (-1 if (a < 0) != (b < 0) else 1)
+    if op == "%":
+        if u64(b) == 0: raise ExpressionError("division by zero")
+        return u64(a) % u64(b)
+    if op == "%%":
+        if u64(b) == 0: raise ExpressionError("division by zero")
+        return s64(a) - _apply("//", a, b) * s64(b)
+    if op in ("<<", "<<<"): return u64(a << (b & 63))
+    if op == ">>": return u64(a) >> (b & 63)
+    if op == ">>>": return s64(a) >> (b & 63)
+    if op == "&": return a & b
+    if op == "|": return a | b
+    if op == "^": return a ^ b
+    if op in ("=", "=="): return int(u64(a) == u64(b))
+    if op in ("!=", "<>"): return int(u64(a) != u64(b))
+    # NASM tests the signed 64-bit difference, which can itself wrap.
+    difference = s64(a - b)
+    if op == "<": return int(difference < 0)
+    if op == "<=": return int(difference <= 0)
+    if op == ">": return int(difference > 0)
+    if op == ">=": return int(difference >= 0)
+    if op == "<=>": return int(difference > 0)
+    if op == "&&": return int(bool(u64(a)) and bool(u64(b)))
+    if op == "||": return int(bool(u64(a)) or bool(u64(b)))
+    if op == "^^": return int(bool(u64(a)) != bool(u64(b)))
+    raise ExpressionError(f"unknown operator {op}")
+
+
+def evaluate(source: str, lookup: Callable[[str], Value], location: int = 0,
+             functions: Callable[[str, Value], Value | None] | None = None, *,
+             allow_trailing: bool = False, dollarhex: bool = True) -> Value:
+    tokens: list[str] = []
+    pos = 0
+    while pos < len(source):
+        if source[pos:].isspace(): break
+        match = _TOKEN.match(source, pos)
+        if not match:
+            if allow_trailing and tokens:
+                break
+            raise ExpressionError(f"invalid expression near {source[pos:]!r}")
+        tokens.append(match.group(1))
+        pos = match.end()
+    index = 0
+
+    def parse(min_precedence: int = 0) -> Value:
+        nonlocal index
+        if index >= len(tokens): raise ExpressionError("expected expression")
+        token = tokens[index]
+        index += 1
+        if token in ("+", "-", "~", "!"):
+            child = parse(11)
+            number = child.number
+            left = Value({"+": number, "-": -number, "~": ~number,
+                          "!": int(not (number & 0xFFFFFFFFFFFFFFFF))}[token],
+                         child.unresolved, child.symbolic, child.section,
+                         child.relocation if token == "+" else (-child.relocation if token == "-" else 0))
+        elif token == "(":
+            left = parse()
+            if index >= len(tokens) or tokens[index] != ")": raise ExpressionError("missing ')'")
+            index += 1
+        elif token == "$":
+            left = Value(location, relocation=1)
+        elif token == "$$":
+            left = lookup("$$")
+        elif token[0] in "'\"`":
+            content = string_bytes(token)
+            left = Value(int.from_bytes(content, "little"))
+        else:
+            numeric_token = _number(token, dollarhex=dollarhex)
+            if (numeric_token is None and functions is not None and
+                    index < len(tokens) and tokens[index] == "("):
+                index += 1
+                argument = parse()
+                if index >= len(tokens) or tokens[index] != ")":
+                    raise ExpressionError("missing ')' in function call")
+                index += 1
+                left = functions(token, argument)
+                if left is None: raise ExpressionError(f"unknown function {token}")
+            else:
+                left = Value(numeric_token) if numeric_token is not None else lookup(token)
+        while index < len(tokens):
+            op = tokens[index]
+            if op == "?" and min_precedence == 0:
+                index += 1
+                when_true = parse(0)
+                if index >= len(tokens) or tokens[index] != ":":
+                    raise ExpressionError("missing ':' in conditional expression")
+                index += 1
+                when_false = parse(0)
+                if left.unresolved:
+                    left = Value(0, True)
+                else:
+                    chosen = when_true if left.number & 0xFFFFFFFFFFFFFFFF else when_false
+                    left = Value(chosen.number,
+                                 when_true.unresolved or when_false.unresolved,
+                                 chosen.symbolic, chosen.section, chosen.relocation)
+                continue
+            precedence = _PRECEDENCE.get(op, -1)
+            if precedence < min_precedence: break
+            index += 1
+            right = parse(precedence + 1)
+            section = left.section if right.section is None else (right.section if left.section is None else None)
+            unknown_comparison = (op == "<=>" and
+                                  bool((left.number - right.number) & 0x8000000000000000))
+            left = Value(_apply(op, left.number, right.number),
+                         left.unresolved or right.unresolved or unknown_comparison,
+                         left.symbolic or right.symbolic,
+                         section, (left.relocation + right.relocation if op == "+" else
+                                   left.relocation - right.relocation if op == "-" else 0))
+        return left
+
+    result = parse()
+    if not allow_trailing and index != len(tokens):
+        raise ExpressionError(f"unexpected token {tokens[index]!r}")
+    return result
+
+
+def evaluate_address(source: str, lookup: Callable[[str], Value], location: int = 0,
+                     functions: Callable[[str, Value], Value | None] | None = None
+                     ) -> tuple[Value, dict[str, int]]:
+    """Evaluate a linear 8086 address, retaining register coefficients."""
+    registers = frozenset("ax cx dx bx sp bp si di".split())
+    tokens: list[str] = []
+    pos = 0
+    while pos < len(source):
+        if source[pos:].isspace(): break
+        match = _TOKEN.match(source, pos)
+        if not match: raise ExpressionError(f"invalid expression near {source[pos:]!r}")
+        tokens.append(match.group(1))
+        pos = match.end()
+    index = 0
+
+    def parse(min_precedence: int = 0) -> tuple[Value, dict[str, int]]:
+        nonlocal index
+        if index >= len(tokens): raise ExpressionError("expected expression")
+        token = tokens[index]
+        index += 1
+        if token in ("+", "-", "~", "!"):
+            value, coeffs = parse(11)
+            if token in ("~", "!") and coeffs:
+                raise ExpressionError("nonlinear effective address")
+            number = {"+": value.number, "-": -value.number,
+                      "~": ~value.number,
+                      "!": int(not (value.number & 0xFFFFFFFFFFFFFFFF))}[token]
+            left = (Value(number, value.unresolved, value.symbolic, value.section,
+                          value.relocation if token == "+" else
+                          (-value.relocation if token == "-" else 0)),
+                    {reg: coefficient * (-1 if token == "-" else 1)
+                     for reg, coefficient in coeffs.items()})
+        elif token == "(":
+            left = parse()
+            if index >= len(tokens) or tokens[index] != ")":
+                raise ExpressionError("missing ')'")
+            index += 1
+        elif token == "$":
+            left = Value(location, relocation=1), {}
+        elif token == "$$":
+            left = lookup("$$"), {}
+        elif token[0] in "'\"`":
+            left = Value(int.from_bytes(string_bytes(token), "little")), {}
+        elif token.lower() in registers:
+            left = Value(0), {token.lower(): 1}
+        else:
+            if functions is not None and index < len(tokens) and tokens[index] == "(":
+                index += 1
+                argument, coefficients = parse()
+                if coefficients:
+                    raise ExpressionError("nonlinear effective address")
+                if index >= len(tokens) or tokens[index] != ")":
+                    raise ExpressionError("missing ')' in function call")
+                index += 1
+                value = functions(token, argument)
+                if value is None: raise ExpressionError(f"unknown function {token}")
+                left = value, {}
+            else:
+                n = _number(token)
+                left = (Value(n) if n is not None else lookup(token)), {}
+        while index < len(tokens):
+            op = tokens[index]
+            if op == "?" and min_precedence == 0:
+                index += 1
+                when_true = parse()
+                if index >= len(tokens) or tokens[index] != ":":
+                    raise ExpressionError("missing ':' in conditional expression")
+                index += 1
+                when_false = parse()
+                if left[1]:
+                    raise ExpressionError("nonlinear effective address")
+                if left[0].unresolved:
+                    left = Value(0, True), {}
+                else:
+                    left = when_true if left[0].number & 0xFFFFFFFFFFFFFFFF else when_false
+                continue
+            precedence = _PRECEDENCE.get(op, -1)
+            if precedence < min_precedence: break
+            index += 1
+            right = parse(precedence + 1)
+            a, ac = left
+            b, bc = right
+            section = a.section if b.section is None else (b.section if a.section is None else None)
+            if op in ("+", "-"):
+                sign = 1 if op == "+" else -1
+                coefficients = ac.copy()
+                for reg, coefficient in bc.items():
+                    coefficients[reg] = coefficients.get(reg, 0) + sign * coefficient
+                coefficients = {reg: coefficient for reg, coefficient in coefficients.items()
+                                if coefficient}
+                relocation = a.relocation + sign * b.relocation
+            elif op == "*":
+                if ac and bc or (ac and b.unresolved) or (bc and a.unresolved):
+                    raise ExpressionError("nonlinear effective address")
+                coefficients = ({reg: coefficient * b.number for reg, coefficient in ac.items()}
+                                if ac else {reg: coefficient * a.number for reg, coefficient in bc.items()})
+                coefficients = {reg: coefficient for reg, coefficient in coefficients.items()
+                                if coefficient}
+                relocation = 0
+            else:
+                if ac or bc:
+                    raise ExpressionError("nonlinear effective address")
+                coefficients = {}
+                relocation = 0
+            unknown_comparison = (op == "<=>" and
+                                  bool((a.number - b.number) & 0x8000000000000000))
+            left = (Value(_apply(op, a.number, b.number),
+                          a.unresolved or b.unresolved or unknown_comparison,
+                          a.symbolic or b.symbolic, section, relocation), coefficients)
+        return left
+
+    result = parse()
+    if index != len(tokens): raise ExpressionError(f"unexpected token {tokens[index]!r}")
+    return result
