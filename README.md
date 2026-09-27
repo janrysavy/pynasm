@@ -54,6 +54,27 @@ on failure, so a failed build cannot leave a stale binary looking successful.
 The main source cannot also be the output (including hard-link aliases). Keep
 output paths separate from include files and other build inputs as well.
 
+## Expanded byte listings
+
+`python -m pynasm --compatibility nasm3 -Ox -l program.lst -o program.bin program.asm`
+writes an expanded-source listing from the final converged assembly pass. Rows
+show logical source line numbers, section-relative offsets and resolved bytes;
+comments identify source files and sections. Long byte rows wrap at eight bytes.
+BSS and ABSOLUTE reservations show their sizes without claiming file bytes.
+Implicit section-alignment padding has no source row.
+
+The API exposes the same data as immutable `Assembler.listing` records after
+successful assembly, including separate `address` (virtual), `offset` (within
+section), `file_offset` (physical, or `None`), `size`, `data`, `filename`, `number`
+and expanded `text`. A new assembly clears the previous listing, including on
+failure. Binary and listing outputs must be distinct; CLI failure removes both.
+
+This is an expanded listing, not a byte-for-byte implementation of NASM's
+listing format: it does not reproduce macro invocation/include nesting events,
+suppressed preprocessor lines, or symbolic relocation brackets. Consumers of
+NASM's event/depth columns must not substitute it without adapting their parser.
+OMF object output remains unsupported.
+
 ## Tests and progress
 
 Run the bundled tests with:
