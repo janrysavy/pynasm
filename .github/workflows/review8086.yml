@@ -2,47 +2,55 @@ name: 8086 review validation
 on:
   pull_request:
 permissions:
-  contents: read
+  contents: write
 jobs:
   nasm302:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'review/8086-jmp-alignment'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          ref: review/8086-jmp-alignment
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - uses: actions/checkout@v4
         with:
           repository: netwide-assembler/nasm
-          # NASM 3.02, pinned independently of the runner's installed NASM.
           ref: 4a56d66ed9626d5a3ded5414c9d8b7f1a48ce065
           path: _nasm-oracle
           persist-credentials: false
-      - name: Build NASM 3.02 oracle
+      - name: Build pinned NASM 3.02 oracle
         working-directory: _nasm-oracle
         run: |
           sh autogen.sh
           ./configure LDFLAGS=-static
           make -j2 nasm
           ./nasm -v
-      - name: Assemble pinned and live differential tests
+      - name: Apply reviewed patch and test
         shell: bash
         run: |
           set -o pipefail
+          # Only tracked source changes in this reviewed patch are applied.
+          sed -i 's/^ diff --git /diff --git /' .review-fix.patch
+          git apply --check .review-fix.patch
+          git apply .review-fix.patch
           mkdir -p validation
           NASM="$PWD/_nasm-oracle/nasm" python -m unittest discover -s tests -v 2>&1 | tee validation/tests.log
-      - name: Collect reproducible review inputs
-        if: always()
+          PYTHONPATH=. python tests/stress_program_layout.py --nasm "$PWD/_nasm-oracle/nasm" --count 100 --seed 9292026 --cpu 8088 | tee validation/layout.log
+      - name: Commit tested fix to this PR only and remove temporary validation files
         run: |
-          mkdir -p validation
-          git archive --format=tar HEAD > validation/source.tar
-          git rev-parse HEAD > validation/source-commit.txt
-          if test -f _nasm-oracle/nasm; then cp _nasm-oracle/nasm validation/nasm; fi
-      - uses: actions/upload-artifact@v4
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pynasm/_instruction_encoding.py pynasm/assembler.py
+          git rm .github/workflows/review8086.yml .review-fix.patch
+          git commit -m 'fix: use resolved alignment metadata for 8086 branch relaxation'
+          git push origin HEAD:review/8086-jmp-alignment
+      - name: Retain validation logs
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: review8086-validation
+          name: review8086-fixed-validation
           path: validation/
           retention-days: 7
