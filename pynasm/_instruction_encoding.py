@@ -161,40 +161,49 @@ class InstructionEncodingMixin:
     def _require(self, condition: bool, message: str = "invalid operand combination") -> None:
         if not condition: raise self._error(message)
 
-    def _forward_short_delta(self, delta: int, target: int, short_size: int,
+    def _forward_short_delta(self, delta: int, target: Value, short_size: int,
                              prefix_size: int) -> int:
-        """Predict a forward target after shortening this branch.
+        """Predict movement of an affine target when this branch shrinks.
 
-        A preceding pass's target still includes the old branch length. Plain
-        subtraction is wrong across ALIGN: padding can absorb some or all of
-        the shrink, and can otherwise make passes oscillate at 127/128 bytes.
+        Numeric address equality cannot identify a target's defining label.
+        Follow source-position dependencies instead, including EQU aliases and
+        addends. ALIGN may absorb the saving before a dependent label is reached.
         """
         saving = max(0, self._old_size - prefix_size - short_size)
-        if (not saving or self._pass == 0 or self._in_times or
-                target not in self._previous.values() or
+        if (not saving or self._pass == 0 or self._in_times or not target.forward or
+                not target.layout or
                 self._line_index >= len(self._previous_line_positions)):
             return delta
-        old_address, section = self._previous_line_positions[self._line_index]
-        if section != self._section.name or target <= old_address:
+        section = self._section.name
+        if (self._previous_line_positions[self._line_index][1] != section or
+                any(name != section for name, _, _ in target.layout)):
             return delta
-        for index in range(self._line_index + 1, len(self._previous_line_positions)):
-            address, line_section = self._previous_line_positions[index]
-            if line_section != section or address >= target:
+        dependencies = {line: coefficient for _, line, coefficient in target.layout
+                        if line > self._line_index}
+        if not dependencies:
+            return delta
+        last = max(dependencies)
+        if last >= len(self._previous_line_positions):
+            return delta
+        movement = 0
+        for index in range(self._line_index + 1, last + 1):
+            # Labels bind to the start of their line, before its own ALIGN.
+            movement += dependencies.get(index, 0) * saving
+            if index == last:
+                break
+            _, line_section = self._previous_line_positions[index]
+            if line_section != section:
                 continue
             if (index >= len(self._older_line_sizes) or
                     self._previous_line_sizes[index] != self._older_line_sizes[index]):
-                # The following bytes are not stable yet; leave this branch
-                # wide until its forward span settles.
                 self._deferred_branch_relax = True
                 return delta
-            # Use the actual resolved directive, not its source spelling:
-            # ALIGN can follow a label or use an expression/macro argument.
             alignment = self._previous_line_alignments.get(index)
             if alignment is not None:
                 old_padding = self._previous_line_sizes[index]
                 new_padding = (old_padding + saving) % alignment
                 saving += old_padding - new_padding
-        return delta - saving
+        return delta - movement
 
     def _encode(self, mnemonic: str, ops: list[Operand], prefix_size: int = 0,
                 repne_prefix: bool = False,
@@ -269,7 +278,7 @@ class InstructionEncodingMixin:
             instruction_address = self._address + prefix_size
             delta = op.expr.number - (instruction_address + short_size)
             if op.expr.symbolic and op.expr.number > self._address:
-                delta = self._forward_short_delta(delta, op.expr.number,
+                delta = self._forward_short_delta(delta, op.expr,
                                                   short_size, prefix_size)
             conditional = 0x70 <= JCC[mnemonic] <= 0x7F
             cross_section = op.expr.section is not None and op.expr.section != self._section.name
@@ -311,7 +320,7 @@ class InstructionEncodingMixin:
             instruction_address = self._address + prefix_size
             delta8 = op.expr.number - (instruction_address + short_size)
             if mnemonic == "jmp" and op.expr.symbolic and op.expr.number > self._address:
-                delta8 = self._forward_short_delta(delta8, op.expr.number, short_size, prefix_size)
+                delta8 = self._forward_short_delta(delta8, op.expr, short_size, prefix_size)
             site = (self._line.filename, self._line.number)
             cross_section = op.expr.section is not None and op.expr.section != self._section.name
             if mnemonic == "jmp" and self.optimize <= 1 and self._pass == 0 and op.expr.unresolved and op.qualifier is None:

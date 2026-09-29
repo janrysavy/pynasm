@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import Callable
+
+from ._layout import Layout, combine_layout, scale_layout
 
 
 class ExpressionError(ValueError):
@@ -66,6 +68,9 @@ class Value:
     symbolic: bool = False
     section: str | None = None
     relocation: int = 0
+    # Optimizer provenance is not part of the public numeric Value identity.
+    layout: Layout = field(default=(), compare=False, repr=False)
+    forward: bool = field(default=False, compare=False, repr=False)
 
 
 def string_bytes(token: str) -> bytes:
@@ -121,7 +126,7 @@ def _apply(op: str, a: int, b: int) -> int:
     raise ExpressionError(f"unknown operator {op}")
 
 
-def evaluate(source: str, lookup: Callable[[str], Value], location: int = 0,
+def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
              functions: Callable[[str, Value], Value | None] | None = None, *,
              allow_trailing: bool = False, dollarhex: bool = True) -> Value:
     tokens: list[str] = []
@@ -148,13 +153,16 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int = 0,
             left = Value({"+": number, "-": -number, "~": ~number,
                           "!": int(not (number & 0xFFFFFFFFFFFFFFFF))}[token],
                          child.unresolved, child.symbolic, child.section,
-                         child.relocation if token == "+" else (-child.relocation if token == "-" else 0))
+                         child.relocation if token == "+" else (-child.relocation if token == "-" else 0),
+                         child.layout if token == "+" else
+                         scale_layout(child.layout, -1) if token in ("-", "~") else
+                         (() if child.layout == () else None), child.forward)
         elif token == "(":
             left = parse()
             if index >= len(tokens) or tokens[index] != ")": raise ExpressionError("missing ')'")
             index += 1
         elif token == "$":
-            left = Value(location, relocation=1)
+            left = location if isinstance(location, Value) else Value(location, relocation=1)
         elif token == "$$":
             left = lookup("$$")
         elif token[0] in "'\"`":
@@ -171,6 +179,8 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int = 0,
                 index += 1
                 left = functions(token, argument)
                 if left is None: raise ExpressionError(f"unknown function {token}")
+                if argument.layout != ():
+                    left = replace(left, layout=None, forward=argument.forward)
             else:
                 left = Value(numeric_token) if numeric_token is not None else lookup(token)
         while index < len(tokens):
@@ -183,12 +193,14 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int = 0,
                 index += 1
                 when_false = parse(0)
                 if left.unresolved:
-                    left = Value(0, True)
+                    left = Value(0, True, layout=None)
                 else:
                     chosen = when_true if left.number & 0xFFFFFFFFFFFFFFFF else when_false
                     left = Value(chosen.number,
                                  when_true.unresolved or when_false.unresolved,
-                                 chosen.symbolic, chosen.section, chosen.relocation)
+                                 chosen.symbolic, chosen.section, chosen.relocation,
+                                 chosen.layout if left.layout == () else None,
+                                 left.forward or when_true.forward or when_false.forward)
                 continue
             precedence = _PRECEDENCE.get(op, -1)
             if precedence < min_precedence: break
@@ -201,7 +213,10 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int = 0,
                          left.unresolved or right.unresolved or unknown_comparison,
                          left.symbolic or right.symbolic,
                          section, (left.relocation + right.relocation if op == "+" else
-                                   left.relocation - right.relocation if op == "-" else 0))
+                                   left.relocation - right.relocation if op == "-" else 0),
+                         combine_layout(op, left.layout, right.layout,
+                                        left.number, right.number),
+                         left.forward or right.forward)
         return left
 
     result = parse()
