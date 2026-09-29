@@ -290,7 +290,10 @@ class InstructionEncodingMixin:
                 wide_size = 7 if long_target else 5
                 return bytes((JCC[mnemonic] ^ 1, 3, 0xE9)) + _word(
                     op.expr.number - (instruction_address + wide_size), 4 if long_target else 2)
-            if (op.expr.symbolic or op.expr.relocation) and not op.expr.unresolved and not _signed8(delta):
+            # Keep NASM's linear layout-based encoding choice above, but
+            # validate a selected rel8 using the CPU's wrapping 16-bit IP.
+            fits_rel8 = _signed8 if long_target or forced_operand_width == 32 else _signed8_word
+            if (op.expr.symbolic or op.expr.relocation) and not op.expr.unresolved and not fits_rel8(delta):
                 self._range_errors.append((self._line.filename, self._line.number))
             return branch_prefix + bytes((JCC[mnemonic], delta & 0xFF))
         if mnemonic in ("jmp", "call"):
@@ -325,7 +328,8 @@ class InstructionEncodingMixin:
             if mnemonic == "jmp" and op.qualifier != "near" and (op.qualifier == "short" or
                     (not op.strict and not modern_unqualified_near and not cross_section and site not in self._wide_jumps and
                      not op.expr.unresolved and _signed8(delta8))):
-                if (op.expr.symbolic or op.expr.relocation) and not op.expr.unresolved and not _signed8(delta8):
+                fits_rel8 = _signed8 if long_target else _signed8_word
+                if (op.expr.symbolic or op.expr.relocation) and not op.expr.unresolved and not fits_rel8(delta8):
                     self._range_errors.append((self._line.filename, self._line.number))
                 return prefix + bytes((0xEB, delta8 & 0xFF))
             self._require(op.qualifier != "short")
