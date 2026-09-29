@@ -187,16 +187,12 @@ class InstructionEncodingMixin:
                 # wide until its forward span settles.
                 self._deferred_branch_relax = True
                 return delta
-            line = _comment(self._lines[index].text).strip()
-            if line.startswith("[") and line.endswith("]"):
-                line = line[1:-1].strip()
-            alignment = re.match(r"(?i)^alignb?\s+([^,\s]+)", line)
-            if alignment:
-                number = _number(alignment.group(1), dollarhex=self._dollarhex)
-                if number is None or number <= 0:
-                    return delta
+            # Use the actual resolved directive, not its source spelling:
+            # ALIGN can follow a label or use an expression/macro argument.
+            alignment = self._previous_line_alignments.get(index)
+            if alignment is not None:
                 old_padding = self._previous_line_sizes[index]
-                new_padding = (old_padding + saving) % number
+                new_padding = (old_padding + saving) % alignment
                 saving += old_padding - new_padding
         return delta - saving
 
@@ -314,8 +310,8 @@ class InstructionEncodingMixin:
             near_size = (5 if long_target else 3) + len(prefix)
             instruction_address = self._address + prefix_size
             delta8 = op.expr.number - (instruction_address + short_size)
-            if mnemonic == "jmp" and op.expr.symbolic and op.expr.number > self._address and self._pass > 0 and not self._in_times:
-                delta8 -= max(0, self._old_size - prefix_size - short_size)
+            if mnemonic == "jmp" and op.expr.symbolic and op.expr.number > self._address:
+                delta8 = self._forward_short_delta(delta8, op.expr.number, short_size, prefix_size)
             site = (self._line.filename, self._line.number)
             cross_section = op.expr.section is not None and op.expr.section != self._section.name
             if mnemonic == "jmp" and self.optimize <= 1 and self._pass == 0 and op.expr.unresolved and op.qualifier is None:
@@ -751,6 +747,7 @@ class InstructionEncodingMixin:
             relative_address = (self._address - self._section.base if self._section is not None
                                 else self._address)
             padding = (-relative_address) % alignment.number
+            self._line_alignments[self._line_index] = alignment.number
             if len(parts) == 1:
                 if mnemonic == "align" and self._smartalign_active:
                     if (self._smartalign_threshold >= 0 and

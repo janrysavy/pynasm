@@ -274,6 +274,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self._deferred_branch_relax = False
         self._previous_line_sizes = previous_sizes
         self._line_positions: list[tuple[int, str | None]] = []
+        self._line_alignments: dict[int, int] = {}
         self._sectalign_auto = True
         self._dollarhex = True
         self._float_rounding = "near"
@@ -562,6 +563,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         previous_sizes: list[int] = []
         older_sizes: list[int] = []
         self._previous_line_positions = []
+        self._previous_line_alignments: dict[int, int] = {}
         # A chain of boundary branches can relax one instruction per pass:
         # each newly widened forward branch shifts the following symbols.
         # Allow the pass budget to scale with source length while retaining a
@@ -609,6 +611,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
             self._previous_symbol_relocations = dict(self._symbol_relocations)
             self._previous_sections = self._sections
             self._previous_line_positions = current_line_positions
+            self._previous_line_alignments = self._line_alignments
             older_sizes = previous_sizes
             previous_sizes = sizes
         raise self._error("assembly did not converge")
