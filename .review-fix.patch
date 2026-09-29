@@ -1,0 +1,22 @@
+diff --git a/pynasm/expression.py b/pynasm/expression.py
+index 6acfa63..16f924a 100644
+--- a/pynasm/expression.py
++++ b/pynasm/expression.py
+@@ -6,6 +6,8 @@ import re
+ from dataclasses import dataclass
+ from typing import Callable
+ 
++from ._string_escapes import unquote_backtick
++
+ 
+ class ExpressionError(ValueError):
+     pass
+@@ -73,7 +75,7 @@ def string_bytes(token: str) -> bytes:
+         raise ExpressionError("invalid string literal")
+     if token[0] == "`":
+         try:
+-            return token[1:-1].encode("latin-1").decode("unicode_escape").encode("latin-1")
++            return unquote_backtick(token[1:-1].encode("latin-1"))
+         except (UnicodeError, ValueError) as exc:
+             raise ExpressionError(f"invalid string escape: {exc}") from exc
+     return token[1:-1].encode("latin-1")
