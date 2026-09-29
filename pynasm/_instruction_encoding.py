@@ -287,7 +287,12 @@ class InstructionEncodingMixin:
             site = (self._line.filename, self._line.number)
             if self.compatibility == "nasm3" and self.optimize == 1 and conditional and op.qualifier != "short":
                 self._wide_jcc.add(site)
-            if (conditional and (repne_prefix or (op.strict and op.qualifier != "short") or
+            # An EQU defined earlier in this pass can still be unresolved.
+            # Start it wide; unlike a direct forward label it cannot use the
+            # current instruction's forward-reference relaxation prediction.
+            unresolved_equ = (self.compatibility == "nasm3" and op.expr.unresolved and
+                              not op.expr.forward and op.qualifier != "short")
+            if (conditional and (unresolved_equ or repne_prefix or (op.strict and op.qualifier != "short") or
                     (not op.expr.unresolved and op.qualifier != "short" and
                      (op.qualifier == "near" or cross_section or site in self._wide_jcc or
                       modern_absolute or (not _signed8(delta) and

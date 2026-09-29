@@ -31,6 +31,8 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self._previous_symbol_relocations: dict[str, int] = {}
         self._symbol_layouts: dict[str, Layout] = {}
         self._previous_symbol_layouts: dict[str, Layout] = {}
+        self._symbol_unresolved: dict[str, bool] = {}
+        self._previous_symbol_unresolved: dict[str, bool] = {}
         self._global = ""
         self._line = SourceLine("", "<string>", 0)
         self._address = 0
@@ -121,16 +123,18 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         if name in self.symbols:
             # An EQU evaluated earlier in this pass is not a forward reference,
             # even when its expression ultimately depends on a later label.
-            return Value(self.symbols[name], symbolic=True, section=self._symbol_sections.get(name),
+            return Value(self.symbols[name], unresolved=self._symbol_unresolved.get(name, False),
+                         symbolic=True, section=self._symbol_sections.get(name),
                          relocation=self._symbol_relocations.get(name, 0),
                          layout=self._symbol_layouts.get(name))
         if name in self._previous:
-            return Value(self._previous[name], self._pass == 0, True,
+            return Value(self._previous[name],
+                         self._pass == 0 or self._previous_symbol_unresolved.get(name, False), True,
                          self._previous_symbol_sections.get(name),
                          self._previous_symbol_relocations.get(name, 0),
                          self._previous_symbol_layouts.get(name), forward=True)
         self._missing.add(name)
-        return Value(0, True, True, layout=None)
+        return Value(0, True, True, layout=None, forward=True)
 
     def _eval(self, expression: str) -> Value:
         location = Value(self._line_address, relocation=1,
@@ -328,6 +332,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self._global = ""
         self.symbols = {}
         self._symbol_layouts = {}
+        self._symbol_unresolved = {}
         self._symbol_sections = {}
         self._symbol_relocations = {}
         self._missing = set()
@@ -357,6 +362,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 self._symbol_sections[key] = value.section
                 self._symbol_relocations[key] = value.relocation
                 self._symbol_layouts[key] = value.layout
+                self._symbol_unresolved[key] = value.unresolved
                 sizes.append(0)
                 continue
             while text:
@@ -385,6 +391,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 self._symbol_sections[key] = value.section
                 self._symbol_relocations[key] = value.relocation
                 self._symbol_layouts[key] = value.layout
+                self._symbol_unresolved[key] = value.unresolved
                 sizes.append(0)
                 continue
             orphan = re.match(r"^([A-Za-z_.$?@][\w.$?@~#]*)\s+(.+)$", text)
@@ -461,6 +468,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self.listing = ()
         self._previous = {}
         self._previous_symbol_layouts = {}
+        self._previous_symbol_unresolved = {}
         self._previous_symbol_sections = {}
         self._previous_symbol_relocations = {}
         self._pass = 0
@@ -565,6 +573,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 self._lines[at] = SourceLine(text, line.filename, line.number)
         self.symbols = {}
         self._symbol_layouts = {}
+        self._symbol_unresolved = {}
         self._symbol_sections = {}
         self._symbol_relocations = {}
         self._address = self._origin = 0
@@ -584,6 +593,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     self._symbol_sections[key] = value.section
                     self._symbol_relocations[key] = value.relocation
                     self._symbol_layouts[key] = value.layout
+                    self._symbol_unresolved[key] = value.unresolved
         previous_sizes: list[int] = []
         older_sizes: list[int] = []
         self._previous_line_positions = []
@@ -611,6 +621,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     self.symbols == previous_symbols and
                     self._symbol_relocations == previous_relocations and
                     self._symbol_layouts == self._previous_symbol_layouts and
+                    self._symbol_unresolved == self._previous_symbol_unresolved and
                     section_state == old_section_state):
                 if self._missing: raise self._error("undefined symbol: " + sorted(self._missing)[0])
                 if self._invalid_times: raise self._error("TIMES needs a known nonnegative count")
@@ -633,6 +644,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 return output
             self._previous = dict(self.symbols)
             self._previous_symbol_layouts = dict(self._symbol_layouts)
+            self._previous_symbol_unresolved = dict(self._symbol_unresolved)
             self._previous_symbol_sections = dict(self._symbol_sections)
             self._previous_symbol_relocations = dict(self._symbol_relocations)
             self._previous_sections = self._sections
