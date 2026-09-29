@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ._assembler_syntax import *
+from ._layout import combine_layout, scale_layout
 
 
 class InstructionEncodingMixin:
@@ -186,7 +187,9 @@ class InstructionEncodingMixin:
         if last >= len(self._previous_line_positions):
             return delta
         movement = 0
+        position_savings = {}
         for index in range(self._line_index + 1, last + 1):
+            position_savings[index] = saving
             # Labels bind to the start of their line, before its own ALIGN.
             movement += dependencies.get(index, 0) * saving
             if index == last:
@@ -198,6 +201,17 @@ class InstructionEncodingMixin:
                     self._previous_line_sizes[index] != self._older_line_sizes[index]):
                 self._deferred_branch_relax = True
                 return delta
+            size_layout = self._previous_line_size_layouts.get(index, ())
+            if size_layout is None:
+                return delta  # No affine prediction for this directive's size.
+            size_saving = 0
+            for name, position, coefficient in size_layout:
+                if name != section or position > index:
+                    return delta  # Depends on a position not yet simulated.
+                size_saving += coefficient * position_savings.get(position, 0)
+            if self._previous_line_sizes[index] - size_saving < 0:
+                return delta
+            saving += size_saving
             alignment = self._previous_line_alignments.get(index)
             if alignment is not None:
                 old_padding = self._previous_line_sizes[index]
@@ -503,6 +517,7 @@ class InstructionEncodingMixin:
                      "dy": 32, "dz": 64,
                      "bf16": 2}[directive]
         output = bytearray()
+        size_layout = ()
         items = _split(arguments)
         if items and items[-1] == "": items.pop()
         for arg in items:
@@ -518,9 +533,11 @@ class InstructionEncodingMixin:
                     arg = size.group(2).strip()
                 if arg.startswith("%(") and arg.endswith(")"):
                     output.extend(self._data(directive, arg[2:-1], item_width))
+                    size_layout = combine_layout("+", size_layout, self._size_layout, 0, 0)
                     continue
                 if size and arg.startswith("(") and arg.endswith(")"):
                     output.extend(self._data(directive, arg[1:-1], item_width))
+                    size_layout = combine_layout("+", size_layout, self._size_layout, 0, 0)
                     continue
             if arg == "?":
                 output.extend(bytes(item_width))
@@ -533,7 +550,11 @@ class InstructionEncodingMixin:
                     final_item = _split(match.group(2))[-1]
                     self._require(not re.match(r"(?is)^.+?\s+dup\s*\(.*\)$", final_item),
                                   "nested DUP cannot end a data list in this NASM profile")
-                output.extend(self._data(directive, match.group(2), item_width) * amount.number)
+                element = self._data(directive, match.group(2), item_width)
+                repeated = combine_layout("*", amount.layout, self._size_layout,
+                                          amount.number, len(element))
+                size_layout = combine_layout("+", size_layout, repeated, 0, 0)
+                output.extend(element * amount.number)
                 continue
             if arg[0] in "'\"`" and arg[-1:] == arg[0]:
                 content = string_bytes(arg)
@@ -557,6 +578,7 @@ class InstructionEncodingMixin:
                 self._require(item_width <= 8 and directive != "bf16",
                               f"{directive.upper()} requires a floating-point constant")
                 output.extend(_word(self._eval(arg).number, item_width))
+        self._size_layout = size_layout
         return bytes(output)
 
     @staticmethod
@@ -611,6 +633,7 @@ class InstructionEncodingMixin:
         raise self._error("invalid FPU operand combination")
 
     def _instruction(self, text: str) -> bytes:
+        self._size_layout = ()
         text = text.strip()
         bracketed = text.startswith("[") and text.endswith("]")
         if bracketed:
@@ -714,9 +737,10 @@ class InstructionEncodingMixin:
             self._require(not count.unresolved and
                           (count.number >= 0 or self.compatibility == "nasm3"),
                           "invalid reserve count")
-            return bytes(max(0, count.number) *
-                         {"resb": 1, "resw": 2, "resd": 4, "resq": 8,
-                          "rest": 10, "reso": 16, "resy": 32, "resz": 64}[mnemonic])
+            unit = {"resb": 1, "resw": 2, "resd": 4, "resq": 8,
+                    "rest": 10, "reso": 16, "resy": 32, "resz": 64}[mnemonic]
+            self._size_layout = scale_layout(count.layout, unit) if count.number >= 0 else None
+            return bytes(max(0, count.number) * unit)
         if mnemonic == "alignmode":
             self._require(self._smartalign_active, "ALIGNMODE requires %use smartalign")
             parts = _split(arguments)
