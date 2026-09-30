@@ -239,6 +239,8 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
         while index < len(tokens):
             op = tokens[index]
             if op == "?" and min_precedence == 0:
+                if strict_scalars:
+                    _require_scalar(left)
                 index += 1
                 when_true = parse(0)
                 if index >= len(tokens) or tokens[index] != ":":
@@ -348,6 +350,8 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
         while index < len(tokens):
             op = tokens[index]
             if op == "?" and min_precedence == 0:
+                if strict_scalars:
+                    _require_scalar(left[0])
                 index += 1
                 when_true = parse()
                 if index >= len(tokens) or tokens[index] != ":":
