@@ -442,9 +442,10 @@ class InstructionEncodingMixin:
                 self._require(src.width in (None, 8), "invalid operand sizes")
             accumulator_fit = (_signed8_word(src.expr.number) if self.compatibility == "nasm3"
                                else ((src.expr.number + 0x80) & 0xFFFFFFFF) <= 0xFF)
+            relocatable = self.compatibility == "nasm3" and src.expr.relocation != 0
             accumulator_short = dst.width == 16 and (src.width == 8 or
                                  (self.optimize > (0 if self.compatibility == "nasm3" else 1) and
-                                  not src.strict and not src.expr.unresolved and accumulator_fit))
+                                  not src.strict and not src.expr.unresolved and not relocatable and accumulator_fit))
             if dst.kind == "reg" and src.kind == "imm" and dst.reg == 0 and not accumulator_short:
                 return bytes((base + (4 if dst.width == 8 else 5),)) + _word(src.expr.number, dst.width // 8)
             if dst.kind in ("reg", "mem") and src.kind == "imm":
@@ -455,7 +456,7 @@ class InstructionEncodingMixin:
                 preserve_forward = self.compatibility == "nasm09839" and self.optimize <= 1 and (
                     self._line.filename, self._line.number) in self._wide_immediates
                 short = src.width == 8 or (self.optimize > 0 and not preserve_word and not src.strict and
-                                           not preserve_forward and not src.expr.unresolved and
+                                           not preserve_forward and not src.expr.unresolved and not relocatable and
                                            _signed8_word(src.expr.number))
                 return self._rm(0x83 if short else 0x81, field, dst, 16) + _word(src.expr.number, 1 if short else 2)
             if src.kind == "reg" and dst.kind in ("reg", "mem"):
