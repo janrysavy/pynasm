@@ -8,6 +8,7 @@ from ._preprocessor_directives import PreprocessorDirectiveMixin
 from ._preprocessor_source import SourceReaderMixin
 from ._instruction_encoding import InstructionEncodingMixin
 from .listing import ListingLine
+from ._layout import Layout
 
 
 class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMixin, InstructionEncodingMixin):
@@ -28,6 +29,8 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self._previous_symbol_sections: dict[str, str | None] = {}
         self._symbol_relocations: dict[str, int] = {}
         self._previous_symbol_relocations: dict[str, int] = {}
+        self._symbol_layouts: dict[str, Layout] = {}
+        self._previous_symbol_layouts: dict[str, Layout] = {}
         self._global = ""
         self._line = SourceLine("", "<string>", 0)
         self._address = 0
@@ -105,24 +108,35 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         return self._global + name if name.startswith(".") else name
 
     def _lookup(self, name: str) -> Value:
-        if name == "$$": return Value(self._origin, relocation=0 if self._section is None else 1)
+        if name == "$$":
+            return Value(self._origin, relocation=0 if self._section is None else 1,
+                         layout=() if self._section is None else ((self._section.name, -1, 1),))
         if name.startswith("section.") and name.endswith(".start"):
             section_name = name[len("section."):-len(".start")]
             section = self._sections.get(section_name) or self._previous_sections.get(section_name)
-            if section is not None: return Value(section.base, symbolic=True, section=section_name, relocation=1)
+            if section is not None:
+                return Value(section.base, symbolic=True, section=section_name, relocation=1,
+                             layout=((section_name, -1, 1),))
         name = self._key(name)
         if name in self.symbols:
+            # An EQU evaluated earlier in this pass is not a forward reference,
+            # even when its expression ultimately depends on a later label.
             return Value(self.symbols[name], symbolic=True, section=self._symbol_sections.get(name),
-                         relocation=self._symbol_relocations.get(name, 0))
+                         relocation=self._symbol_relocations.get(name, 0),
+                         layout=self._symbol_layouts.get(name))
         if name in self._previous:
             return Value(self._previous[name], self._pass == 0, True,
                          self._previous_symbol_sections.get(name),
-                         self._previous_symbol_relocations.get(name, 0))
+                         self._previous_symbol_relocations.get(name, 0),
+                         self._previous_symbol_layouts.get(name), forward=True)
         self._missing.add(name)
-        return Value(0, True, True)
+        return Value(0, True, True, layout=None)
 
     def _eval(self, expression: str) -> Value:
-        try: return evaluate(expression, self._lookup, self._line_address,
+        location = Value(self._line_address, relocation=1,
+                         layout=() if self._section is None else
+                         ((self._section.name, self._line_index, 1),))
+        try: return evaluate(expression, self._lookup, location,
                              self._integer_function, dollarhex=self._dollarhex)
         except ExpressionError as exc: raise self._error(str(exc)) from exc
 
@@ -313,6 +327,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self._org_this_pass = None
         self._global = ""
         self.symbols = {}
+        self._symbol_layouts = {}
         self._symbol_sections = {}
         self._symbol_relocations = {}
         self._missing = set()
@@ -341,6 +356,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 self.symbols[key] = value.number
                 self._symbol_sections[key] = value.section
                 self._symbol_relocations[key] = value.relocation
+                self._symbol_layouts[key] = value.layout
                 sizes.append(0)
                 continue
             while text:
@@ -354,6 +370,8 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 self.symbols[key] = self._address
                 self._symbol_sections[key] = self._section.name if self._section is not None else None
                 self._symbol_relocations[key] = 1 if self._section is not None else 0
+                self._symbol_layouts[key] = (() if self._section is None else
+                                             ((self._section.name, line_index, 1),))
                 text = label.group(2).strip()
             if not text:
                 sizes.append(0)
@@ -366,6 +384,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 self.symbols[key] = value.number
                 self._symbol_sections[key] = value.section
                 self._symbol_relocations[key] = value.relocation
+                self._symbol_layouts[key] = value.layout
                 sizes.append(0)
                 continue
             orphan = re.match(r"^([A-Za-z_.$?@][\w.$?@~#]*)\s+(.+)$", text)
@@ -380,6 +399,8 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     self.symbols[key] = self._address
                     self._symbol_sections[key] = self._section.name if self._section is not None else None
                     self._symbol_relocations[key] = 1 if self._section is not None else 0
+                    self._symbol_layouts[key] = (() if self._section is None else
+                                                 ((self._section.name, line_index, 1),))
                     text = orphan.group(2)
             times = re.match(r"(?is)^times\s+(.+?)\s+(db|dw|dd|dq|resb|resw|resd|resq|[a-z]+)\b(.*)$", text)
             count_text = times.group(1) if times else None
@@ -439,6 +460,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
     def assemble(self, source: str, *, filename: str = "<string>") -> bytes:
         self.listing = ()
         self._previous = {}
+        self._previous_symbol_layouts = {}
         self._previous_symbol_sections = {}
         self._previous_symbol_relocations = {}
         self._pass = 0
@@ -542,6 +564,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     text = text.replace(marker, replacement)
                 self._lines[at] = SourceLine(text, line.filename, line.number)
         self.symbols = {}
+        self._symbol_layouts = {}
         self._symbol_sections = {}
         self._symbol_relocations = {}
         self._address = self._origin = 0
@@ -560,6 +583,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     self.symbols[key] = value.number
                     self._symbol_sections[key] = value.section
                     self._symbol_relocations[key] = value.relocation
+                    self._symbol_layouts[key] = value.layout
         previous_sizes: list[int] = []
         older_sizes: list[int] = []
         self._previous_line_positions = []
@@ -586,6 +610,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     previous_origin == self._program_origin and sizes == previous_sizes and
                     self.symbols == previous_symbols and
                     self._symbol_relocations == previous_relocations and
+                    self._symbol_layouts == self._previous_symbol_layouts and
                     section_state == old_section_state):
                 if self._missing: raise self._error("undefined symbol: " + sorted(self._missing)[0])
                 if self._invalid_times: raise self._error("TIMES needs a known nonnegative count")
@@ -607,6 +632,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 self.listing = tuple(records)
                 return output
             self._previous = dict(self.symbols)
+            self._previous_symbol_layouts = dict(self._symbol_layouts)
             self._previous_symbol_sections = dict(self._symbol_sections)
             self._previous_symbol_relocations = dict(self._symbol_relocations)
             self._previous_sections = self._sections
