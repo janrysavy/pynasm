@@ -76,6 +76,9 @@ class Value:
     # source positions. None derives bases from a newly constructed label's
     # layout; computed expressions carry an explicit (possibly empty) vector.
     bases: tuple[tuple[str, int], ...] | None = field(default=None, compare=False, repr=False)
+    # NASM's EXPR_UNKNOWN is a vector term, not a sticky Boolean. Arithmetic
+    # may cancel it even when the forward symbols have different spellings.
+    unknown: int | None = field(default=None, compare=False, repr=False)
 
 
 def string_bytes(token: str) -> bytes:
@@ -194,11 +197,30 @@ def _require_scalar(value: Value) -> None:
 _COMPARISONS = frozenset(('=', '==', '!=', '<>', '<', '<=', '>', '>=', '<=>'))
 
 
+def _unknown(value: Value) -> int:
+    return int(value.unresolved) if value.unknown is None else value.unknown
+
+
+def _unknown_binary(op: str, a: Value, b: Value) -> int:
+    left, right = _unknown(a), _unknown(b)
+    if op in ('+', '-'):
+        return left + (right if op == '+' else -right)
+    if op in _COMPARISONS:
+        return int(left != right)
+    if op == '*':
+        if left and right:
+            return 1
+        return left * b.number + right * a.number
+    return int(bool(left or right))
+
+
 def _binary_number(op: str, a: Value, b: Value, strict_scalars: bool, *,
                    different_registers: bool = False) -> int:
     if strict_scalars and op in _COMPARISONS:
-        if a.unresolved or b.unresolved:
+        if _unknown(a) != _unknown(b):
             return 0
+        # Equal UNKNOWN coefficients cancel in the comparison difference.
+        a, b = replace(a, unresolved=False), replace(b, unresolved=False)
         # NASM compares expression vectors, not just their current addresses.
         # Equality permits a non-scalar difference (which is unequal), while
         # ordered comparisons require the section/register terms to cancel.
@@ -223,6 +245,10 @@ def _binary_number(op: str, a: Value, b: Value, strict_scalars: bool, *,
         # reaches _apply and fails, even when the numerator is unknown.
         if op in ('/', '//', '%', '%%') and b.unresolved:
             return 0
+    if strict_scalars and op == '*':
+        if ((_unknown(a) and not b.unresolved and not _is_scalar(b)) or
+                (_unknown(b) and not a.unresolved and not _is_scalar(a))):
+            raise ExpressionError("unable to multiply two non-scalar objects")
     return _apply(op, a.number, b.number)
 
 
@@ -230,7 +256,26 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
              functions: Callable[[str, Value], Value | None] | None = None, *,
              allow_trailing: bool = False, dollarhex: bool = True,
              strict_scalars: bool = False) -> Value:
+    """Evaluate one expression, optionally allowing unconsumed source text."""
+    return _evaluate(source, lookup, location, functions,
+                     allow_trailing=allow_trailing, dollarhex=dollarhex,
+                     strict_scalars=strict_scalars)[0]
+
+
+def evaluate_prefix(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
+                    functions: Callable[[str, Value], Value | None] | None = None, *,
+                    dollarhex: bool = True, strict_scalars: bool = False) -> tuple[Value, int]:
+    """Return the expression value and character offset immediately after it."""
+    return _evaluate(source, lookup, location, functions, allow_trailing=True,
+                     dollarhex=dollarhex, strict_scalars=strict_scalars)
+
+
+def _evaluate(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
+             functions: Callable[[str, Value], Value | None] | None = None, *,
+             allow_trailing: bool = False, dollarhex: bool = True,
+             strict_scalars: bool = False) -> tuple[Value, int]:
     tokens: list[str] = []
+    token_ends: list[int] = []
     pos = 0
     while pos < len(source):
         if source[pos:].isspace(): break
@@ -240,6 +285,7 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
                 break
             raise ExpressionError(f"invalid expression near {source[pos:]!r}")
         tokens.append(match.group(1))
+        token_ends.append(match.end())
         pos = match.end()
     index = 0
 
@@ -260,7 +306,10 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
                          child.layout if token == "+" else
                          scale_layout(child.layout, -1) if token in ("-", "~") else
                          (() if child.layout == () else None), child.forward,
-                         bases=_unary_bases(token, child))
+                         bases=_unary_bases(token, child),
+                         unknown=(_unknown(child) * (-1 if token == '-' else 1)
+                                  if token in ('+', '-') else int(bool(_unknown(child))))
+                         if strict_scalars else None)
         elif token == "(":
             left = parse()
             if index >= len(tokens) or tokens[index] != ")": raise ExpressionError("missing ')'")
@@ -303,11 +352,12 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
                 else:
                     chosen = when_true if left.number & 0xFFFFFFFFFFFFFFFF else when_false
                     left = Value(chosen.number,
+                                 chosen.unresolved if strict_scalars else
                                  when_true.unresolved or when_false.unresolved,
                                  chosen.symbolic, chosen.section, chosen.relocation,
                                  chosen.layout if left.layout == () else None,
                                  left.forward or when_true.forward or when_false.forward,
-                                 bases=_bases(chosen))
+                                 bases=_bases(chosen), unknown=chosen.unknown)
                 continue
             precedence = _PRECEDENCE.get(op, -1)
             if precedence < min_precedence: break
@@ -316,21 +366,24 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
             section = left.section if right.section is None else (right.section if left.section is None else None)
             unknown_comparison = (op == "<=>" and
                                   bool((left.number - right.number) & 0x8000000000000000))
+            unknown = _unknown_binary(op, left, right) if strict_scalars else None
             left = Value(_binary_number(op, left, right, strict_scalars),
-                         left.unresolved or right.unresolved or unknown_comparison,
+                         (bool(unknown) if strict_scalars else
+                          left.unresolved or right.unresolved) or unknown_comparison,
                          left.symbolic or right.symbolic,
                          section, _relocation(op, left, right),
                          combine_layout(op, left.layout, right.layout,
                                         left.number, right.number),
                          left.forward or right.forward,
-                         bases=_combine_bases(op, left, right))
+                         bases=_combine_bases(op, left, right),
+                         unknown=1 if unknown_comparison else unknown)
         return left
 
     result = parse()
     if not allow_trailing and index != len(tokens):
         raise ExpressionError(f"unexpected token {tokens[index]!r}")
     _require_simple_relocation(result)
-    return result
+    return result, token_ends[index - 1]
 
 
 def evaluate_address(source: str, lookup: Callable[[str], Value], location: int | Value = 0,

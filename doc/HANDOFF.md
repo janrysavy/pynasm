@@ -1,16 +1,21 @@
-# Handoff - PR24 integrated, 2026-09-30
+# Handoff - remaining PRO takeover, 2026-09-30
 
-FINISHED: PR24 merged as 2e2f8ea after Windows/Linux checks passed on its
-final head 5d5c562. Original PR21-23 heads are ancestors of master; their
-fixes are retained, and GitHub marked all three PRs merged automatically.
-Issue #19 is resolved with assembly-aware preprocessing and location metadata.
+FINISHED: PR25 percent-token boundaries are merged into this integration branch.
+Four focused methods pass with native NASM 3.02, including 240 oracle cases;
+legacy compatibility and inactive/macro/string contexts remain covered.
+Earlier PR24 and issue19 are integrated on master; their evidence is unchanged.
 
-Native NASM suite: 244 methods, 243 passed/one optional corpus skip. All 294
-location-context outcomes agree, and the full 3,091-byte DOSCTRL worker
-retains the historical byte/hash identity. Evidence and full logs:
-doc/PREPROCESSOR_LOCATION.md and its linked receipt.
+FINISHED: PR26 expression parsing also passes six focused methods, including
+96 native NASM outcomes at O0/O1/O9. Both original PR heads are retained.
 
-Other PRO work is still running; preserve its feature/transfer branches.
-This commit only refreshes the merge state; parent pin and full parent checks
-are handled in the parent HANDOFF. Do not infer new Pascal translation or
-gameplay evidence from assembler validation.
+FINISHED: the unfinished first-pass branch is preserved. All 435 historical
+native outcomes were reproduced; its source digest was corrected to an explicit
+JSON encoding. Before repair, pynasm disagreed on 84 of 145 cases; all now agree.
+
+FINISHED: generic UNKNOWN-vector cancellation, EQU projection and immediate
+TIMES validation. Full final native suite: 258 methods, 257 passed/one optional
+skip. Four new regression methods pass 870 Python and 435 native corpus checks.
+Details: doc/PRO_REMAINDER_TIMES.md; full log in its compressed receipt.
+
+WIP: final Windows/Linux CI must pass on this exact head before merge/pinning.
+Do not infer Pascal or gameplay proof from assembler tests.
