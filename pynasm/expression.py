@@ -148,21 +148,41 @@ def _require_simple_relocation(value: Value) -> None:
         raise ExpressionError("expression is not simple or relocatable")
 
 
-def _require_scalar(value: Value) -> None:
-    if value.unresolved:
-        return
-    if value.relocation:
-        raise ExpressionError("operator may only be applied to scalar values")
+def _is_scalar(value: Value) -> bool:
     # A cross-section subtraction can have total coefficient zero while
     # still containing two distinct section bases. Same-section terms cancel.
     bases: dict[str, int] = {}
     for section, _, coefficient in value.layout or ():
         bases[section] = bases.get(section, 0) + coefficient
-    if any(bases.values()):
+    return not value.relocation and not any(bases.values())
+
+
+def _require_scalar(value: Value) -> None:
+    if not value.unresolved and not _is_scalar(value):
         raise ExpressionError("operator may only be applied to scalar values")
 
 
-def _binary_number(op: str, a: Value, b: Value, strict_scalars: bool) -> int:
+_COMPARISONS = frozenset(('=', '==', '!=', '<>', '<', '<=', '>', '>=', '<=>'))
+
+
+def _binary_number(op: str, a: Value, b: Value, strict_scalars: bool, *,
+                   different_registers: bool = False) -> int:
+    if strict_scalars and op in _COMPARISONS:
+        if a.unresolved or b.unresolved:
+            return 0
+        # NASM compares expression vectors, not just their current addresses.
+        # Equality permits a non-scalar difference (which is unequal), while
+        # ordered comparisons require the section/register terms to cancel.
+        difference = Value(a.number - b.number,
+                           relocation=a.relocation - b.relocation,
+                           layout=combine_layout('-', a.layout, b.layout,
+                                                 a.number, b.number))
+        if different_registers or not _is_scalar(difference):
+            if op in ('=', '=='):
+                return 0
+            if op in ('!=', '<>'):
+                return 1
+            raise ExpressionError(f"'{op}': operands differ by a non-scalar")
     if strict_scalars and op in (
             '/', '//', '%', '%%', '<<', '<<<', '>>', '>>>',
             '&', '|', '^', '&&', '||', '^^'):
@@ -385,6 +405,11 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                 coefficients = {reg: coefficient for reg, coefficient in coefficients.items()
                                 if coefficient}
                 relocation = _relocation(op, a, b)
+            elif strict_scalars and op in _COMPARISONS:
+                # A comparison consumes register terms rather than encoding
+                # them in the final address. Equal vectors may cancel.
+                coefficients = {}
+                relocation = 0
             else:
                 if ac or bc:
                     raise ExpressionError("nonlinear effective address")
@@ -392,7 +417,8 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                 relocation = 0
             unknown_comparison = (op == "<=>" and
                                   bool((a.number - b.number) & 0x8000000000000000))
-            left = (Value(_binary_number(op, a, b, strict_scalars),
+            left = (Value(_binary_number(op, a, b, strict_scalars,
+                                        different_registers=ac != bc),
                           a.unresolved or b.unresolved or unknown_comparison,
                           a.symbolic or b.symbolic, section, relocation,
                           combine_layout(op, a.layout, b.layout, a.number, b.number),
