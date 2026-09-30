@@ -116,7 +116,8 @@ class InstructionEncodingMixin:
                                  ((self._section.name, self._line_index, 1),))
                 expr, coefficients = evaluate_address(
                     f"({leading_address})+({inner})" if leading_address else inner,
-                    self._lookup, location, self._integer_function)
+                    self._lookup, location, self._integer_function,
+                    strict_scalars=self.compatibility == 'nasm3')
             except ExpressionError as exc:
                 raise self._error(str(exc)) from exc
             self._require(all(coefficient == 1 for coefficient in coefficients.values()),
@@ -318,8 +319,9 @@ class InstructionEncodingMixin:
                                                   short_size, prefix_size)
             conditional = 0x70 <= JCC[mnemonic] <= 0x7F
             cross_section = op.expr.section is not None and op.expr.section != self._section.name
-            modern_absolute = (self.compatibility == "nasm3" and
-                               not op.expr.symbolic and op.expr.relocation == 0)
+            # A scalar EQU still has a name. It is an absolute target, not a
+            # same-section label; default 8086 Jcc uses NASM's near expansion.
+            modern_absolute = self.compatibility == "nasm3" and op.expr.relocation == 0
             site = (self._line.filename, self._line.number)
             if self.compatibility == "nasm3" and self.optimize == 1 and conditional and op.qualifier != "short":
                 self._wide_jcc.add(site)

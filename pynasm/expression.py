@@ -148,9 +148,38 @@ def _require_simple_relocation(value: Value) -> None:
         raise ExpressionError("expression is not simple or relocatable")
 
 
+def _require_scalar(value: Value) -> None:
+    if value.unresolved:
+        return
+    if value.relocation:
+        raise ExpressionError("operator may only be applied to scalar values")
+    # A cross-section subtraction can have total coefficient zero while
+    # still containing two distinct section bases. Same-section terms cancel.
+    bases: dict[str, int] = {}
+    for section, _, coefficient in value.layout or ():
+        bases[section] = bases.get(section, 0) + coefficient
+    if any(bases.values()):
+        raise ExpressionError("operator may only be applied to scalar values")
+
+
+def _binary_number(op: str, a: Value, b: Value, strict_scalars: bool) -> int:
+    if strict_scalars and op in (
+            '/', '//', '%', '%%', '<<', '<<<', '>>', '>>>',
+            '&', '|', '^', '&&', '||', '^^'):
+        _require_scalar(a)
+        _require_scalar(b)
+        # Unknown denominators are not zero denominators. Keep the unresolved
+        # obligation so later passes resolve or refuse it; known zero still
+        # reaches _apply and fails, even when the numerator is unknown.
+        if op in ('/', '//', '%', '%%') and b.unresolved:
+            return 0
+    return _apply(op, a.number, b.number)
+
+
 def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
              functions: Callable[[str, Value], Value | None] | None = None, *,
-             allow_trailing: bool = False, dollarhex: bool = True) -> Value:
+             allow_trailing: bool = False, dollarhex: bool = True,
+             strict_scalars: bool = False) -> Value:
     tokens: list[str] = []
     pos = 0
     while pos < len(source):
@@ -171,6 +200,8 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
         index += 1
         if token in ("+", "-", "~", "!"):
             child = parse(11)
+            if strict_scalars and token in ('~', '!'):
+                _require_scalar(child)
             number = child.number
             left = Value({"+": number, "-": -number, "~": ~number,
                           "!": int(not (number & 0xFFFFFFFFFFFFFFFF))}[token],
@@ -231,7 +262,7 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
             section = left.section if right.section is None else (right.section if left.section is None else None)
             unknown_comparison = (op == "<=>" and
                                   bool((left.number - right.number) & 0x8000000000000000))
-            left = Value(_apply(op, left.number, right.number),
+            left = Value(_binary_number(op, left, right, strict_scalars),
                          left.unresolved or right.unresolved or unknown_comparison,
                          left.symbolic or right.symbolic,
                          section, _relocation(op, left, right),
@@ -248,7 +279,8 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
 
 
 def evaluate_address(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
-                     functions: Callable[[str, Value], Value | None] | None = None
+                     functions: Callable[[str, Value], Value | None] | None = None, *,
+                     strict_scalars: bool = False
                      ) -> tuple[Value, dict[str, int]]:
     """Evaluate a linear 8086 address, retaining register coefficients."""
     registers = frozenset("ax cx dx bx sp bp si di".split())
@@ -271,6 +303,8 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
             value, coeffs = parse(11)
             if token in ("~", "!") and coeffs:
                 raise ExpressionError("nonlinear effective address")
+            if strict_scalars and token in ('~', '!'):
+                _require_scalar(value)
             number = {"+": value.number, "-": -value.number,
                       "~": ~value.number,
                       "!": int(not (value.number & 0xFFFFFFFFFFFFFFFF))}[token]
@@ -358,7 +392,7 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                 relocation = 0
             unknown_comparison = (op == "<=>" and
                                   bool((a.number - b.number) & 0x8000000000000000))
-            left = (Value(_apply(op, a.number, b.number),
+            left = (Value(_binary_number(op, a, b, strict_scalars),
                           a.unresolved or b.unresolved or unknown_comparison,
                           a.symbolic or b.symbolic, section, relocation,
                           combine_layout(op, a.layout, b.layout, a.number, b.number),

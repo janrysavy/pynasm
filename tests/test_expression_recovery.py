@@ -17,13 +17,14 @@ class ExpressionRecoveryTests(unittest.TestCase):
     def test_captured_native_outcomes(self):
         assembler = Assembler(compatibility='nasm3')
         for row in self.receipt['cases']:
-            with self.subTest(group=row['group'], source=row['source'], level=row['level']):
-                assembler.optimize = row['level']
-                try:
-                    actual = assembler.assemble(row['source']).hex()
-                except AssemblyError:
-                    actual = None
-                self.assertEqual(actual, row['hex'])
+            for cpu in ('8086', '8088'):
+                with self.subTest(cpu=cpu, group=row['group'], source=row['source'], level=row['level']):
+                    assembler.optimize = row['level']
+                    try:
+                        actual = assembler.assemble(row['source'].replace('cpu 8086', f'cpu {cpu}')).hex()
+                    except AssemblyError:
+                        actual = None
+                    self.assertEqual(actual, row['hex'])
         # A refused input must not contaminate a reused instance.
         self.assertEqual(assembler.assemble('cpu 8088\nnop\n'), b'\x90')
 

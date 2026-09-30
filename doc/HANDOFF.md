@@ -4,10 +4,12 @@ FINISHED: independently captured 630 native NASM 3.02 expression outcomes
 from PRO run 6abc8733's useful progress claims. GitHub does not contain its
 claimed final PRs. Provenance and replay: doc/PRO_RUN_20260930.md.
 
-WIP: test_expression_recovery has 339 failing subcases on unchanged 07faa71.
-Next: defer unknown zero denominators until resolved, and preserve scalar-only
-operator validation in the nasm3 profile; then replay the fixtures and suite.
-This is a deliberately red test checkpoint, not an integration-ready head.
+FINISHED locally: unknown denominator deferral, scalar operator validation in
+both parsers and scalar-EQU Jcc sizing. Corrected arithmetic fixtures have
+324 rejections; 348 old-head failures now pass. Both CPU aliases replay 1,260
+outcomes; 217 native-enabled test methods pass with one external-corpus skip.
+WIP: run final stress/portable checks and final-head Windows/Linux CI before
+merging PR #15. Then remove the one-off packaging branch and update parent pin.
 
 FINISHED: PR #14 merged after final Windows/Linux CI passed. All original
 heads #3–#13 are ancestors of master. #11's failing regression and the
