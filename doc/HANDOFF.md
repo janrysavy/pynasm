@@ -1,4 +1,18 @@
-# Handoff — PR integration completed, 2026-09-30
+# Handoff — expression repair checkpoint, 2026-09-30
+
+FINISHED: independently captured 630 native NASM 3.02 expression outcomes
+from PRO run 6abc8733's useful progress claims. GitHub does not contain its
+claimed final PRs. Provenance and replay: doc/PRO_RUN_20260930.md.
+
+FINISHED locally: unknown denominator deferral, scalar operator validation in
+both parsers and scalar-EQU Jcc sizing. Corrected arithmetic fixtures have
+324 rejections; 348 old-head failures now pass. Both CPU aliases replay 1,260
+outcomes; 217 native-enabled test methods pass with one external-corpus skip.
+FINISHED: portable suite 196 pass/21 explicit optional skips; native branch
+matrix 1,944 outcomes and 300 generated program comparisons pass. Repair-head
+Windows/Linux CI passed; logs and hashes are in doc/evidence/pro_expression_recovery_20260930.json.gz.
+WIP: final documentation-head CI before merging PR #15. Then remove the
+one-off packaging branch and update parent pin. No Pascal translation added.
 
 FINISHED: PR #14 merged after final Windows/Linux CI passed. All original
 heads #3–#13 are ancestors of master. #11's failing regression and the

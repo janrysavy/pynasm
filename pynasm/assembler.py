@@ -141,7 +141,8 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                          layout=() if self._section is None else
                          ((self._section.name, self._line_index, 1),))
         try: return evaluate(expression, self._lookup, location,
-                             self._integer_function, dollarhex=self._dollarhex)
+                             self._integer_function, dollarhex=self._dollarhex,
+                             strict_scalars=self.compatibility == 'nasm3')
         except ExpressionError as exc: raise self._error(str(exc)) from exc
 
     def _pp_eval(self, expression: str, definitions: dict[str, str], *,
@@ -153,7 +154,8 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
             if name in self._pp_known_labels: return Value(self._pp_known_labels[name])
             return Value(0, True)
         try: return evaluate(expanded, lookup, functions=self._integer_function,
-                             allow_trailing=allow_trailing, dollarhex=self._dollarhex)
+                             allow_trailing=allow_trailing, dollarhex=self._dollarhex,
+                             strict_scalars=self.compatibility == 'nasm3')
         except ExpressionError as exc: raise self._error(str(exc)) from exc
 
     def _set_dollarhex(self, arguments: str, definitions: dict[str, str] | None = None) -> None:
