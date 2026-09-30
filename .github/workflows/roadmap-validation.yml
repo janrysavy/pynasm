@@ -1,11 +1,11 @@
 name: Pinned NASM roadmap validation
 on:
-  push:
-    branches: [review/nasm-roadmap-template-ledger]
+  pull_request:
 permissions:
   contents: read
 jobs:
   oracle:
+    if: github.head_ref == 'review/nasm-roadmap-template-ledger'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -29,7 +29,9 @@ jobs:
       - name: Test current baseline and collect source audit inputs
         run: |
           mkdir -p validation
-          tar -C _nasm-oracle -czf validation/nasm-source.tar.gz --exclude=.git .
+          git -C _nasm-oracle archive --format=tar HEAD | gzip > validation/nasm-source.tar.gz
+          cp _nasm-oracle/x86/insns.xda validation/insns.xda
+          cp _nasm-oracle/nasm validation/nasm
           NASM="$PWD/_nasm-oracle/nasm" python -m unittest discover -s tests -v > validation/tests.log 2>&1
       - uses: actions/upload-artifact@v4
         if: always()
