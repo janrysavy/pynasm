@@ -1,5 +1,20 @@
 # 8086/8088 assembler test plan and status
 
+## 2026-09-30 complete-program interaction slice
+
+[NASM_LAYOUT_TESTS.md](NASM_LAYOUT_TESTS.md) documents the additional P0.2
+program corpus, two section-layout fixes, 1,440 live comparisons, and the
+explicit cyclic-follows reference-timeout exclusion.
+
+
+## 2026-09-30 source-ledger and integer-boundary additions
+
+See [NASM_ROADMAP_TESTS.md](NASM_ROADMAP_TESTS.md) for the 524-row machine-readable
+source inventory, 7,852-case portable corpus, 35,980-case opt-in matrix, paired
+CPU rejections, semantic reference pin, exact commands and remaining gates.
+These supplement, rather than replace, the existing catalog below.
+
+
 The active plan for **tests still to implement** is in
 [FUTURE_TESTS.md](FUTURE_TESTS.md). This file catalogs existing checks,
 run commands, source findings, and historical research notes.

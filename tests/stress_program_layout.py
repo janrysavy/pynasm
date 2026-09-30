@@ -75,5 +75,18 @@ if __name__ == "__main__":
     parser.add_argument("--count", type=int, default=100)
     parser.add_argument("--seed", type=int, default=8088)
     parser.add_argument("--cpu", choices=("8086", "8088"), default="8086")
+    parser.add_argument("--interactions", action="store_true",
+                        help="exercise sections/BSS, ABSOLUTE, INCBIN, includes and location expressions")
+    parser.add_argument("--failures", type=Path, default=Path("program-layout-failures"),
+                        help="retained failure directory for --interactions")
     args = parser.parse_args()
-    print(f"compared {run(args.nasm, args.count, args.seed, args.cpu)} programs")
+    if args.interactions:
+        import json
+        try:
+            from .stress_program_interactions import run as run_interactions
+        except ImportError:
+            from stress_program_interactions import run as run_interactions
+        print(json.dumps(run_interactions(args.nasm, args.count, args.seed, args.cpu,
+                                          args.failures), sort_keys=True))
+    else:
+        print(f"compared {run(args.nasm, args.count, args.seed, args.cpu)} programs")

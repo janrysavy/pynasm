@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import Callable
+
+from ._string_escapes import unquote_backtick
+from ._layout import Layout, combine_layout, scale_layout
 
 
 class ExpressionError(ValueError):
@@ -66,6 +69,9 @@ class Value:
     symbolic: bool = False
     section: str | None = None
     relocation: int = 0
+    # Optimizer provenance is not part of the public numeric Value identity.
+    layout: Layout = field(default=(), compare=False, repr=False)
+    forward: bool = field(default=False, compare=False, repr=False)
 
 
 def string_bytes(token: str) -> bytes:
@@ -73,7 +79,7 @@ def string_bytes(token: str) -> bytes:
         raise ExpressionError("invalid string literal")
     if token[0] == "`":
         try:
-            return token[1:-1].encode("latin-1").decode("unicode_escape").encode("latin-1")
+            return unquote_backtick(token[1:-1].encode("latin-1"))
         except (UnicodeError, ValueError) as exc:
             raise ExpressionError(f"invalid string escape: {exc}") from exc
     return token[1:-1].encode("latin-1")
@@ -121,7 +127,28 @@ def _apply(op: str, a: int, b: int) -> int:
     raise ExpressionError(f"unknown operator {op}")
 
 
-def evaluate(source: str, lookup: Callable[[str], Value], location: int = 0,
+
+def _relocation(op: str, a: Value, b: Value) -> int:
+    """Combine section-base coefficients separately from numeric values."""
+    if op == "+":
+        return a.relocation + b.relocation
+    if op == "-":
+        return a.relocation - b.relocation
+    if op == "*":
+        if a.relocation and b.relocation:
+            raise ExpressionError("unable to multiply two non-scalar objects")
+        return a.relocation * b.number + b.relocation * a.number
+    return 0
+
+
+def _require_simple_relocation(value: Value) -> None:
+    # Intermediate products may have any coefficient and cancel later, but
+    # a complete operand/EQU/data expression must be simple or relocatable.
+    if not value.unresolved and value.relocation not in (-1, 0, 1):
+        raise ExpressionError("expression is not simple or relocatable")
+
+
+def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
              functions: Callable[[str, Value], Value | None] | None = None, *,
              allow_trailing: bool = False, dollarhex: bool = True) -> Value:
     tokens: list[str] = []
@@ -148,13 +175,16 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int = 0,
             left = Value({"+": number, "-": -number, "~": ~number,
                           "!": int(not (number & 0xFFFFFFFFFFFFFFFF))}[token],
                          child.unresolved, child.symbolic, child.section,
-                         child.relocation if token == "+" else (-child.relocation if token == "-" else 0))
+                         child.relocation if token == "+" else (-child.relocation if token == "-" else 0),
+                         child.layout if token == "+" else
+                         scale_layout(child.layout, -1) if token in ("-", "~") else
+                         (() if child.layout == () else None), child.forward)
         elif token == "(":
             left = parse()
             if index >= len(tokens) or tokens[index] != ")": raise ExpressionError("missing ')'")
             index += 1
         elif token == "$":
-            left = Value(location, relocation=1)
+            left = location if isinstance(location, Value) else Value(location, relocation=1)
         elif token == "$$":
             left = lookup("$$")
         elif token[0] in "'\"`":
@@ -171,6 +201,8 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int = 0,
                 index += 1
                 left = functions(token, argument)
                 if left is None: raise ExpressionError(f"unknown function {token}")
+                if argument.layout != ():
+                    left = replace(left, layout=None, forward=argument.forward)
             else:
                 left = Value(numeric_token) if numeric_token is not None else lookup(token)
         while index < len(tokens):
@@ -183,12 +215,14 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int = 0,
                 index += 1
                 when_false = parse(0)
                 if left.unresolved:
-                    left = Value(0, True)
+                    left = Value(0, True, layout=None)
                 else:
                     chosen = when_true if left.number & 0xFFFFFFFFFFFFFFFF else when_false
                     left = Value(chosen.number,
                                  when_true.unresolved or when_false.unresolved,
-                                 chosen.symbolic, chosen.section, chosen.relocation)
+                                 chosen.symbolic, chosen.section, chosen.relocation,
+                                 chosen.layout if left.layout == () else None,
+                                 left.forward or when_true.forward or when_false.forward)
                 continue
             precedence = _PRECEDENCE.get(op, -1)
             if precedence < min_precedence: break
@@ -200,17 +234,20 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int = 0,
             left = Value(_apply(op, left.number, right.number),
                          left.unresolved or right.unresolved or unknown_comparison,
                          left.symbolic or right.symbolic,
-                         section, (left.relocation + right.relocation if op == "+" else
-                                   left.relocation - right.relocation if op == "-" else 0))
+                         section, _relocation(op, left, right),
+                         combine_layout(op, left.layout, right.layout,
+                                        left.number, right.number),
+                         left.forward or right.forward)
         return left
 
     result = parse()
     if not allow_trailing and index != len(tokens):
         raise ExpressionError(f"unexpected token {tokens[index]!r}")
+    _require_simple_relocation(result)
     return result
 
 
-def evaluate_address(source: str, lookup: Callable[[str], Value], location: int = 0,
+def evaluate_address(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
                      functions: Callable[[str, Value], Value | None] | None = None
                      ) -> tuple[Value, dict[str, int]]:
     """Evaluate a linear 8086 address, retaining register coefficients."""
@@ -239,7 +276,10 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                       "!": int(not (value.number & 0xFFFFFFFFFFFFFFFF))}[token]
             left = (Value(number, value.unresolved, value.symbolic, value.section,
                           value.relocation if token == "+" else
-                          (-value.relocation if token == "-" else 0)),
+                          (-value.relocation if token == "-" else 0),
+                          value.layout if token == "+" else
+                          scale_layout(value.layout, -1) if token in ("-", "~") else
+                          (() if value.layout == () else None), value.forward),
                     {reg: coefficient * (-1 if token == "-" else 1)
                      for reg, coefficient in coeffs.items()})
         elif token == "(":
@@ -248,7 +288,8 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                 raise ExpressionError("missing ')'")
             index += 1
         elif token == "$":
-            left = Value(location, relocation=1), {}
+            left = (location if isinstance(location, Value) else
+                    Value(location, relocation=1)), {}
         elif token == "$$":
             left = lookup("$$"), {}
         elif token[0] in "'\"`":
@@ -302,13 +343,14 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                                 if coefficient}
                 relocation = a.relocation + sign * b.relocation
             elif op == "*":
-                if ac and bc or (ac and b.unresolved) or (bc and a.unresolved):
+                if ((ac or a.relocation) and (bc or b.relocation) or
+                        (ac and b.unresolved) or (bc and a.unresolved)):
                     raise ExpressionError("nonlinear effective address")
                 coefficients = ({reg: coefficient * b.number for reg, coefficient in ac.items()}
                                 if ac else {reg: coefficient * a.number for reg, coefficient in bc.items()})
                 coefficients = {reg: coefficient for reg, coefficient in coefficients.items()
                                 if coefficient}
-                relocation = 0
+                relocation = _relocation(op, a, b)
             else:
                 if ac or bc:
                     raise ExpressionError("nonlinear effective address")
@@ -318,9 +360,12 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                                   bool((a.number - b.number) & 0x8000000000000000))
             left = (Value(_apply(op, a.number, b.number),
                           a.unresolved or b.unresolved or unknown_comparison,
-                          a.symbolic or b.symbolic, section, relocation), coefficients)
+                          a.symbolic or b.symbolic, section, relocation,
+                          combine_layout(op, a.layout, b.layout, a.number, b.number),
+                          a.forward or b.forward), coefficients)
         return left
 
     result = parse()
     if index != len(tokens): raise ExpressionError(f"unexpected token {tokens[index]!r}")
+    _require_simple_relocation(result[0])
     return result

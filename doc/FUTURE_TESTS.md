@@ -1,5 +1,22 @@
 # Future test implementation roadmap
 
+## 2026-09-30 additional P0.2 coverage
+
+[Whole-program interaction tests](NASM_LAYOUT_TESTS.md) now combine sections,
+BSS, ABSOLUTE, INCBIN, nested includes, local macro labels, forward EQU and
+location-dependent fill. Minimized section regressions and declared rejected
+layouts are pinned. This is additional bounded coverage, not closure of P0.2.
+
+
+## 2026-09-30 partial implementation note
+
+P0.1 and P0.4 now have [a source ledger and new boundary matrices](NASM_ROADMAP_TESTS.md).
+All 524 tagged rows are inventoried; 337 integer representatives and selected
+boundaries are checked. OPT rows and strict-CPU divergences are explicit.
+This is **partial coverage**, not closure: per-row selection boundaries, full
+program interactions, and the other gates below still require implementation.
+
+
 Updated 2026-09-27. This is the active plan for tests that **still need to be
 implemented**. [TESTS.md](TESTS.md) catalogs tests that already exist and how
 to run them; [PROGRESS.md](PROGRESS.md) records verified results and open gates.

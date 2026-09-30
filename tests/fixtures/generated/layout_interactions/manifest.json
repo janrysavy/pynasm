@@ -1,0 +1,529 @@
+{
+  "schema": 1,
+  "nasm_commit": "4a56d66ed9626d5a3ded5414c9d8b7f1a48ce065",
+  "seed": 20260930,
+  "generated_programs": 24,
+  "records": [
+    {
+      "name": "0000-copy-data-bss",
+      "family": "copy-data-bss",
+      "file": "0000-copy-data-bss.asm",
+      "reject": false,
+      "sha256": "0b2c69437bb1ca2e20a959db8924b8983f9bcb290f97aa1be1eb7e0af43f625b",
+      "inputs": {
+        "payload.bin": "d60b198defdc0d14fe2b5ab227c0a421ce177c038ee333675489b2d58d4a5c11c914fc878706a761af87ae5f2245b981dfec8ca3f41798852e1493558bc8d311",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c203135370a"
+      },
+      "expected": {
+        "0": "be2800bf4000b90d00fcf3a4e80300e90600bb20008b07c3b8004ccd2100000000002800350040008defdc0d14fe2b5ab227c0a42120001500",
+        "1": "be2800bf4000b90d00fcf3a4e80300e90600bb20008b07c3b8004ccd2100000000002800350040008defdc0d14fe2b5ab227c0a42120001500",
+        "9": "be2800bf4000b90d00fcf3a4e80200eb06bb20008b07c3b8004ccd210000000000002800350040008defdc0d14fe2b5ab227c0a42120001500"
+      }
+    },
+    {
+      "name": "0001-absolute-record",
+      "family": "absolute-record",
+      "file": "0001-absolute-record.asm",
+      "reject": false,
+      "sha256": "b36f598c3613b0128591ec8be941fcc0bb89a4dba39bcbe031a9add4128c516e",
+      "inputs": {
+        "payload.bin": "ba06166e142ac6c4c1d24497ab1abcbdb10b3a8420f057bb62ca38263d8630d3f958ba1ec92afa1153ab1b2db32177076c12a957dfd5a978d2dc795e3be70ceb",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c203136380a"
+      },
+      "expected": {
+        "0": "bb00028a47018b5704050004000600a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "1": "bb00028a47018b5704050004000600a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "9": "bb00028a47018b5704050004000600a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+      }
+    },
+    {
+      "name": "0002-follows-vstart",
+      "family": "follows-vstart",
+      "file": "0002-follows-vstart.asm",
+      "reject": false,
+      "sha256": "f8614a9ee61d316dc8a0736b01047ba0b0e30c6c9514eb60d819c036ebeb5f8f",
+      "inputs": {
+        "payload.bin": "22f601f7bfb352cbe66726d0d4dc1fb7c551734f1ff41cd4ee53b93a4446bbcb8b4a753a73abd6a27caf00c0d8329f5cd1648241fcf26d30a33a34d1da0ab2a3",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2036310a"
+      },
+      "expected": {
+        "0": "b80020e81a00c3102016202000000000000020000020002001f7bfb352cb0000bb0020c3",
+        "1": "b80020e81a00c3102016202000000000000020000020002001f7bfb352cb0000bb0020c3",
+        "9": "b80020e81a00c3102016202000000000000020000020002001f7bfb352cb0000bb0020c3"
+      }
+    },
+    {
+      "name": "0003-include-macro-local",
+      "family": "include-macro-local",
+      "file": "0003-include-macro-local.asm",
+      "reject": false,
+      "sha256": "a937c4faf7de29bc4ae987d8a47b911be09f41550785dc124206ccd1e356e0f5",
+      "inputs": {
+        "payload.bin": "39695668492738d03275cdd5611c5b3d34b69ecf9acc7083f96808a557d1777a6cfef7f2b537e360051e4064865832bb942c64a692429c0357d4f79821ff3659",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c203138310a"
+      },
+      "expected": {
+        "0": "b90b0040e2fde90300b5b5b50c00b90c0040e2fde900000900b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5d03275cdd5611c5b3d34b69ecf9acc708311005100",
+        "1": "b90b0040e2fde90300b5b5b50c00b90c0040e2fde900000900b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5d03275cdd5611c5b3d34b69ecf9acc708311005100",
+        "9": "b90b0040e2fdeb03b5b5b50b00b90c0040e2fdeb000800b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5d03275cdd5611c5b3d34b69ecf9acc708311005100"
+      }
+    },
+    {
+      "name": "0004-cross-section-equ",
+      "family": "cross-section-equ",
+      "file": "0004-cross-section-equ.asm",
+      "reject": false,
+      "sha256": "51af87addf636821ac686d0e3eb07105d9366eb835bb8cab278a4c5030c3a59c",
+      "inputs": {
+        "payload.bin": "208222309de4d7252b5517e81b46f10719327d45ffa82611fd190eeb46f0817f247c3da3a5c9a3c48e37202dff0d5080335a23c12fd3e1da72814578a226daff",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2035370a"
+      },
+      "expected": {
+        "0": "b90f00be1800e80300e90400b83412c3c330000000000000309de4d7252b5517e81b46f10719320f0000000c000f00",
+        "1": "b90f00be1800e80300e90400b83412c3c330000000000000309de4d7252b5517e81b46f10719320f0000000c000f00",
+        "9": "b90f00be1800e80200eb04b83412c3c33000000000000000309de4d7252b5517e81b46f10719320f0000000b000f00"
+      }
+    },
+    {
+      "name": "0005-incbin-layout-range",
+      "family": "incbin-layout-range",
+      "file": "0005-incbin-layout-range.asm",
+      "reject": false,
+      "sha256": "34eea3bb8b87c1227cc143bf2abce14ac910ee8b7916d60d0a7823fc1107435c",
+      "inputs": {
+        "payload.bin": "d73122aea2964c4811bc8e84c1e56263df4856c9039238a1d6d4fb8ac6e3e273d0e82773b8328e6e545ad6d3415399a366d9d8b942c2857fd0241f46771933b5",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2033350a"
+      },
+      "expected": {
+        "0": "b83412e91200000000000000000000000000000000000000aea2964c18000400000000000000000000000000000000000000000000000000000000000000000055aa",
+        "1": "b83412e91200000000000000000000000000000000000000aea2964c18000400000000000000000000000000000000000000000000000000000000000000000055aa",
+        "9": "b83412eb1300000000000000000000000000000000000000aea2964c18000400000000000000000000000000000000000000000000000000000000000000000055aa"
+      }
+    },
+    {
+      "name": "0006-alignb-in-data",
+      "family": "alignb-in-data",
+      "file": "0006-alignb-in-data.asm",
+      "reject": false,
+      "sha256": "8025272e1bbfd06f95a1e872ef5ef8da07b3ae21bc05064f9e656dc04d69ef4b",
+      "inputs": {
+        "payload.bin": "e6ee9229d66692a563266be9cec3b804d66d9d1a30745bd49789997b4bf07dc5931f52bd68b7d83b5297c5916af798d46f23c51316ab313b5bc663eb987b7227",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2037370a"
+      },
+      "expected": {
+        "0": "e90d0020002800000000000000000000a12000c30000000000000000000000004d0000000000000010000800",
+        "1": "e90d0020002800000000000000000000a12000c30000000000000000000000004d0000000000000010000800",
+        "9": "eb0e2000280000000000000000000000a12000c30000000000000000000000004d0000000000000010000800"
+      }
+    },
+    {
+      "name": "0007-forward-fill",
+      "family": "forward-fill",
+      "file": "0007-forward-fill.asm",
+      "reject": false,
+      "sha256": "80212cd72d2c44b3fd131a649f899e4fbac7517214ede3c208d256cce7acbc71",
+      "inputs": {
+        "payload.bin": "6ce477cf98f2d1233b7b3e0122da7bfa8bc2841c13517a89a68c21b916c0fedb4167499eabeaeed717c43117ba3551e8ea7fb4f7fe09cc6ea18bca3010b685f4",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2036300a"
+      },
+      "expected": {
+        "0": "e91000000000000000000000000000000000003c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c130023001000",
+        "1": "e91000000000000000000000000000000000003c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c130023001000",
+        "9": "eb10000000000000000000000000000000003c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c120022001000"
+      }
+    },
+    {
+      "name": "0008-copy-data-bss",
+      "family": "copy-data-bss",
+      "file": "0008-copy-data-bss.asm",
+      "reject": false,
+      "sha256": "daae72f7e7e24ce82c3a90d9a7434cfb0d5f0b6ebea262195460a821aaed8454",
+      "inputs": {
+        "payload.bin": "36fe17da1289b729a66c4a18421a20018d1831dcd96e475848fa52e68e9efc93afbfaabb51b130ae3af5352886db46dd920efeeb0f050541b25caa72f6e665c3",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c203133360a"
+      },
+      "expected": {
+        "0": "be2801bf4001b90600fcf3a4e80300e90600bb20018b07c3b8004ccd21000000000128012e01400129a66c4a184220000e00",
+        "1": "be2801bf4001b90600fcf3a4e80300e90600bb20018b07c3b8004ccd21000000000128012e01400129a66c4a184220000e00",
+        "9": "be2801bf4001b90600fcf3a4e80200eb06bb20018b07c3b8004ccd2100000000000128012e01400129a66c4a184220000e00"
+      }
+    },
+    {
+      "name": "0009-absolute-record",
+      "family": "absolute-record",
+      "file": "0009-absolute-record.asm",
+      "reject": false,
+      "sha256": "7d244f4cb075adfb6e938fde06638739d685b5e9db23b5819bff6ef67da83f7b",
+      "inputs": {
+        "payload.bin": "d72f6a025fc08b448434dbfd9983f32e2c732db7c6f2305b5efbb42c77b8c9a7ee903952ffd90b0011d41dd3f7864e78549affc7a951630854ceb69467fa98f4",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2036310a"
+      },
+      "expected": {
+        "0": "bb00028a078b5704060004000600a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "1": "bb00028a078b5704060004000600a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "9": "bb00028a078b5704060004000600a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+      }
+    },
+    {
+      "name": "0010-follows-vstart",
+      "family": "follows-vstart",
+      "file": "0010-follows-vstart.asm",
+      "reject": false,
+      "sha256": "47399e9321fdd0eb80e7ace7e7bcd422e26d5d3150674103cda06eb020739310",
+      "inputs": {
+        "payload.bin": "f46416cef6720629ece08eb51ff74e97b73c878fa0c3c9e16fd7958841b60dec3a9d9ef478282799da9744bd13427fbf23ed7d4a1d719d76ca65ce10244cbf1a",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c203136320a"
+      },
+      "expected": {
+        "0": "b80020e82200c31420202028010000000001280100200020720629ece08eb51ff74e97b700000000bb0020c3",
+        "1": "b80020e82200c31420202028010000000001280100200020720629ece08eb51ff74e97b700000000bb0020c3",
+        "9": "b80020e82200c31420202028010000000001280100200020720629ece08eb51ff74e97b700000000bb0020c3"
+      }
+    },
+    {
+      "name": "0011-include-macro-local",
+      "family": "include-macro-local",
+      "file": "0011-include-macro-local.asm",
+      "reject": false,
+      "sha256": "15e992fc065037bce99d4d36f2b72d96f9aa9f096553947313143e39c0dad9e6",
+      "inputs": {
+        "payload.bin": "06ed9ca36e585b1969be0bffa22e4cf9e81ec084f496e9430ef6759237f81214f817b9823defb048f02d357f685f24c6aa705af2819273b8380f8f14c4f11dd2",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2037320a"
+      },
+      "expected": {
+        "0": "b9010040e2fde90100480a00b9020040e2fde9020048480b00484848484848484848484848484848484848484848484848484848484848484848484848484848a36e585b1969be0bffa22e4cf9e80e004e00",
+        "1": "b9010040e2fde90100480a00b9020040e2fde9020048480b00484848484848484848484848484848484848484848484848484848484848484848484848484848a36e585b1969be0bffa22e4cf9e80e004e00",
+        "9": "b9010040e2fdeb01480900b9020040e2fdeb0248480a004848484848484848484848484848484848484848484848484848484848484848484848484848484848a36e585b1969be0bffa22e4cf9e80e004e00"
+      }
+    },
+    {
+      "name": "0012-cross-section-equ",
+      "family": "cross-section-equ",
+      "file": "0012-cross-section-equ.asm",
+      "reject": false,
+      "sha256": "503e8da4231ce837c5f10f4bf6c66b539cf41a7fd41cd4466e4dba73cd32906c",
+      "inputs": {
+        "payload.bin": "9441c49245146f20394573cd209b2a3059272cd8122f4fb1a54139fe6cb32c18a883a9f3f1dd63e24e50936621a618d7e329e3b8966b1f99483e0f3d11622da8",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2035360a"
+      },
+      "expected": {
+        "0": "b90600be1801e80300e90400b83412c3c3280100000000006f20394573cd060000010c010600",
+        "1": "b90600be1801e80300e90400b83412c3c3280100000000006f20394573cd060000010c010600",
+        "9": "b90600be1801e80200eb04b83412c3c328010000000000006f20394573cd060000010b010600"
+      }
+    },
+    {
+      "name": "0013-incbin-layout-range",
+      "family": "incbin-layout-range",
+      "file": "0013-incbin-layout-range.asm",
+      "reject": false,
+      "sha256": "8cc5bc3cb82d124d1360be5f2725ddf365710eea01d20f59453b13c8e21f59bb",
+      "inputs": {
+        "payload.bin": "daba1e10f7708cc48167f9ecaed8d61d49ec5138370f76a8a382ff24e3c337b2055ccdb5987f2d44312b1ba5c68b3e86c305a46a3bb2828bf5dba7032c37fe48",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2036320a"
+      },
+      "expected": {
+        "0": "b83412e91200000000000000000000000000000000000000daba1e10f7180005000000000000000000000000000000000000000000000000000000000000000055aa",
+        "1": "b83412e91200000000000000000000000000000000000000daba1e10f7180005000000000000000000000000000000000000000000000000000000000000000055aa",
+        "9": "b83412eb1300000000000000000000000000000000000000daba1e10f7180005000000000000000000000000000000000000000000000000000000000000000055aa"
+      }
+    },
+    {
+      "name": "0014-alignb-in-data",
+      "family": "alignb-in-data",
+      "file": "0014-alignb-in-data.asm",
+      "reject": false,
+      "sha256": "3f8cccacdc13d5f1f818ce6d8daa977a9ef7e58ddab7601b423c036eb7b5080e",
+      "inputs": {
+        "payload.bin": "32fbeeddf74f45774e26bb247152463438f942026e9d08f113682bfad2977f6d155f0777a586a89e1a598f7ee0faddc88db19c4e99676c702d37c99036edfb89",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c203233300a"
+      },
+      "expected": {
+        "0": "e90d0020012801000000000000000000a12001c3000000000000000000000000e60000000000000010000800",
+        "1": "e90d0020012801000000000000000000a12001c3000000000000000000000000e60000000000000010000800",
+        "9": "eb0e2001280100000000000000000000a12001c3000000000000000000000000e60000000000000010000800"
+      }
+    },
+    {
+      "name": "0015-forward-fill",
+      "family": "forward-fill",
+      "file": "0015-forward-fill.asm",
+      "reject": false,
+      "sha256": "53bfbb08b863dee45ec2d97e08db8688833cf1c3727f49649738fa0208d58c17",
+      "inputs": {
+        "payload.bin": "69b6cf060f5e91c12b437f90f8facb9a08b6dc6b8513f7dc21df7a374ef2cd4a8313c01f5db61236a2e3e1138c6d5576136c0f9a1d7638d7dbd5a0414a94f504",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c203233360a"
+      },
+      "expected": {
+        "0": "e90c00000000000000000000000000ecececececececececececec0f011b010c00",
+        "1": "e90c00000000000000000000000000ecececececececececececec0f011b010c00",
+        "9": "eb0c000000000000000000000000ecececececececececececec0e011a010c00"
+      }
+    },
+    {
+      "name": "0016-copy-data-bss",
+      "family": "copy-data-bss",
+      "file": "0016-copy-data-bss.asm",
+      "reject": false,
+      "sha256": "7ffa9252847318362bbabb7c284f8b1fb782a88385f304aeaca793662ff24534",
+      "inputs": {
+        "payload.bin": "fc1d4546ac322e4bf47dc5dd6599a9cfcc93ebee06fc19690ff79ea58ac8f1e65b4908cee6d3097822ae16db26c931cae2d13aa090df4673326c4137e69bb93d",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2032380a"
+      },
+      "expected": {
+        "0": "be287cbf407cb90e00fcf3a4e80300e90600bb207c8b07c3b8004ccd21000000007c287c367c407cac322e4bf47dc5dd6599a9cfcc9320001600",
+        "1": "be287cbf407cb90e00fcf3a4e80300e90600bb207c8b07c3b8004ccd21000000007c287c367c407cac322e4bf47dc5dd6599a9cfcc9320001600",
+        "9": "be287cbf407cb90e00fcf3a4e80200eb06bb207c8b07c3b8004ccd2100000000007c287c367c407cac322e4bf47dc5dd6599a9cfcc9320001600"
+      }
+    },
+    {
+      "name": "0017-absolute-record",
+      "family": "absolute-record",
+      "file": "0017-absolute-record.asm",
+      "reject": false,
+      "sha256": "49b38d674985e14aeed9c21d8f11c1e06f882913ed7708dab42f97fab0109e5b",
+      "inputs": {
+        "payload.bin": "b3114e005d1025e3137b8a7de24ef0249d0e7b258291ebe4a58c847589a50a9769d8f40e464c7dbce61ee809e68dc3753e8971e8c732e0dc73713450e2a3cf9a",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2036330a"
+      },
+      "expected": {
+        "0": "bb00028a47058b5708050008000a00a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "1": "bb00028a47058b5708050008000a00a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "9": "bb00028a47058b5708050008000a00a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+      }
+    },
+    {
+      "name": "0018-follows-vstart",
+      "family": "follows-vstart",
+      "file": "0018-follows-vstart.asm",
+      "reject": false,
+      "sha256": "9932fc439be625dd27f88fafc72f27320b5807571f9781e1e714437767d0b3b9",
+      "inputs": {
+        "payload.bin": "aebaa95368785231ffad116161309aadbacb41548e8de5f967488713cddfdd62d29ee8cfe355edf4dde323efe8de9bf92683a12112a58a08fc371b725a7560ef",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c20390a"
+      },
+      "expected": {
+        "0": "b80020e81a00c30c200f20207c000000007c207c002000205368780000000000bb0020c3",
+        "1": "b80020e81a00c30c200f20207c000000007c207c002000205368780000000000bb0020c3",
+        "9": "b80020e81a00c30c200f20207c000000007c207c002000205368780000000000bb0020c3"
+      }
+    },
+    {
+      "name": "0019-include-macro-local",
+      "family": "include-macro-local",
+      "file": "0019-include-macro-local.asm",
+      "reject": false,
+      "sha256": "60a8ac5e5bd74c88303f2cbf2eb4969d60c340fd02c21e21f0d59b76086780fe",
+      "inputs": {
+        "payload.bin": "bc1a6aeb6e32702a2a6f74be0ac85a23cd7113381c3e0365be7b09d88aa2e28ba5c357ab5c2e349c867a78ce3f3598808cd9d2b3c844ba6fa6b5449955826bb2",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c203137390a"
+      },
+      "expected": {
+        "0": "b9070040e2fde90300b3b3b30c00b9080040e2fde900000900b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b32a2a6f74be0ac85a2309004900",
+        "1": "b9070040e2fde90300b3b3b30c00b9080040e2fde900000900b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b32a2a6f74be0ac85a2309004900",
+        "9": "b9070040e2fdeb03b3b3b30b00b9080040e2fdeb000800b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b32a2a6f74be0ac85a2309004900"
+      }
+    },
+    {
+      "name": "0020-cross-section-equ",
+      "family": "cross-section-equ",
+      "file": "0020-cross-section-equ.asm",
+      "reject": false,
+      "sha256": "c2712a57868d14eeec7fab7f0e519d6235d093d678bae52ebf7414a68394469c",
+      "inputs": {
+        "payload.bin": "176a11ae7db65ef2b8f8ed784108c5f5177e88494b8c395d868c03a2e5c0fdba1e41617e5cbbdae4f03a7af705ecfce3f05ae5e456e51e8a2b5e5fdecd1a820d",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2038310a"
+      },
+      "expected": {
+        "0": "b90d00be187ce80300e90400b83412c3c3307c0000000000b65ef2b8f8ed784108c5f5177e0d00007c0c7c0d00",
+        "1": "b90d00be187ce80300e90400b83412c3c3307c0000000000b65ef2b8f8ed784108c5f5177e0d00007c0c7c0d00",
+        "9": "b90d00be187ce80200eb04b83412c3c3307c000000000000b65ef2b8f8ed784108c5f5177e0d00007c0b7c0d00"
+      }
+    },
+    {
+      "name": "0021-incbin-layout-range",
+      "family": "incbin-layout-range",
+      "file": "0021-incbin-layout-range.asm",
+      "reject": false,
+      "sha256": "8fbc07bf7c3c8d6bbbd415fef8b63e739366699b0a78016b2ac9adfdafb6315f",
+      "inputs": {
+        "payload.bin": "8d9ba5c40e5bea3a1fbf49a4125a82d150ae9e8ff48a3aa78c21f8384aab5e7db755fb36396433427dad15df29122f1892cf64522c5b31c4ce458b5bd6937c02",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c2037350a"
+      },
+      "expected": {
+        "0": "b83412e912000000000000000000000000000000000000009ba5180002000000000000000000000000000000000000000000000000000000000000000000000055aa",
+        "1": "b83412e912000000000000000000000000000000000000009ba5180002000000000000000000000000000000000000000000000000000000000000000000000055aa",
+        "9": "b83412eb13000000000000000000000000000000000000009ba5180002000000000000000000000000000000000000000000000000000000000000000000000055aa"
+      }
+    },
+    {
+      "name": "0022-alignb-in-data",
+      "family": "alignb-in-data",
+      "file": "0022-alignb-in-data.asm",
+      "reject": false,
+      "sha256": "c102e2e2bceb65033c0c8b0350529ae4736785f6d1ab5f5f0a509b869977bce6",
+      "inputs": {
+        "payload.bin": "68e6701676f6936613bdd5407a2b5da709b1d9531764745102a842718833058a95a49ff636b987ae0d86dcc55ffe9eee557fb69eadbccbecee490c0438393b95",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c203231310a"
+      },
+      "expected": {
+        "0": "e90d00207c287c000000000000000000a1207cc3000000000000000000000000d30000000000000010000800",
+        "1": "e90d00207c287c000000000000000000a1207cc3000000000000000000000000d30000000000000010000800",
+        "9": "eb0e207c287c00000000000000000000a1207cc3000000000000000000000000d30000000000000010000800"
+      }
+    },
+    {
+      "name": "0023-forward-fill",
+      "family": "forward-fill",
+      "file": "0023-forward-fill.asm",
+      "reject": false,
+      "sha256": "8ff97e64107ed84345b6a821a3d89d1e5575aac75f26dc2948b5f3e832fe6ad7",
+      "inputs": {
+        "payload.bin": "ac81161d86d09966fae202a1fe09811fd394d0eab565b0cb1e65e2f382cdda128aa62effcc69ddcf45f30caf66a642b42cf870755db3c551efb16a89473ce7c9",
+        "layout.inc": "25696e636c75646520226e65737465642f636f6e7374616e74732e696e63220a",
+        "nested/constants.inc": "25646566696e652046494c4c203138370a"
+      },
+      "expected": {
+        "0": "e908000000000000000000bbbbbbbbbbbbbbbb0b7c137c0800",
+        "1": "e908000000000000000000bbbbbbbbbbbbbbbb0b7c137c0800",
+        "9": "eb080000000000000000bbbbbbbbbbbbbbbb0a7c127c0800"
+      }
+    },
+    {
+      "name": "late-alignment.bss",
+      "family": "late-alignment-regression",
+      "file": "late-alignment.bss.asm",
+      "reject": false,
+      "sha256": "ed55bb333e5da6dd27486dfde191e2c28dbb94dc09d682b736a3208c0aa96ba0",
+      "inputs": {},
+      "expected": {
+        "0": "b82000",
+        "1": "b82000",
+        "9": "b82000"
+      }
+    },
+    {
+      "name": "late-alignment.data",
+      "family": "late-alignment-regression",
+      "file": "late-alignment.data.asm",
+      "reject": false,
+      "sha256": "7a3e14b2fcb8f870960c60a6a0b0e13282c4f762823bde2a705117ec905d7812",
+      "inputs": {},
+      "expected": {
+        "0": "b8200000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000",
+        "1": "b8200000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000",
+        "9": "b8200000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    {
+      "name": "conflicting-org",
+      "family": "rejection",
+      "file": "conflicting-org.asm",
+      "reject": true,
+      "sha256": "9f11d6fff63162d1a27fb85e9b872ffffd0e61f402a4e38f4628603064802260",
+      "inputs": {},
+      "expected": {
+        "0": null,
+        "1": null,
+        "9": null
+      }
+    },
+    {
+      "name": "invalid-section-alignment",
+      "family": "rejection",
+      "file": "invalid-section-alignment.asm",
+      "reject": true,
+      "sha256": "ddfb283049a4a5c1a00d08ef51edb5660d29cfb0bdfcec6b3ee40c2503483d97",
+      "inputs": {},
+      "expected": {
+        "0": null,
+        "1": null,
+        "9": null
+      }
+    },
+    {
+      "name": "overlapping-sections",
+      "family": "rejection",
+      "file": "overlapping-sections.asm",
+      "reject": true,
+      "sha256": "124a94f27bac26afdae2a20d0385640ddd45566bac4ea709b29e8e7e3b5cecbd",
+      "inputs": {},
+      "expected": {
+        "0": null,
+        "1": null,
+        "9": null
+      }
+    },
+    {
+      "name": "nonconverging-times",
+      "family": "rejection",
+      "file": "nonconverging-times.asm",
+      "reject": true,
+      "sha256": "cae2e1becbe2fddb24652bc935ab561e57504f40bf87d89c167d5449b5e586b7",
+      "inputs": {},
+      "expected": {
+        "0": null,
+        "1": null,
+        "9": null
+      }
+    },
+    {
+      "name": "code-in-absolute",
+      "family": "rejection",
+      "file": "code-in-absolute.asm",
+      "reject": true,
+      "sha256": "ff4cbb4116c984185e90d66e0d5ae1bcbb4828c7f3fffe970c0bcea718182026",
+      "inputs": {},
+      "expected": {
+        "0": null,
+        "1": null,
+        "9": null
+      }
+    },
+    {
+      "name": "mixed-nobits-placement",
+      "family": "rejection",
+      "file": "mixed-nobits-placement.asm",
+      "reject": true,
+      "sha256": "a15ca04eb278e63e0a940a17abf5f2af5c238fc2222a7e092b16a6c1d65ab68b",
+      "inputs": {},
+      "expected": {
+        "0": null,
+        "1": null,
+        "9": null
+      }
+    }
+  ],
+  "reference_exclusions": [
+    {
+      "name": "cyclic-follows",
+      "file": "cyclic-follows.asm",
+      "sha256": "fcecb40f806165e074c5baf238912afa482747c46aa7062e0779acc33af5e696",
+      "reason": "NASM 3.02 times out at O0/O1/O9 with a 5-second limit",
+      "pynasm": "reject; not a byte-parity claim"
+    }
+  ]
+}

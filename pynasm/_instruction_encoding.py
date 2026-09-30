@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ._assembler_syntax import *
+from ._layout import combine_layout, scale_layout
 
 
 class InstructionEncodingMixin:
@@ -110,14 +111,34 @@ class InstructionEncodingMixin:
             if word_displacement and displacement_width == 8:
                 displacement_width = 16
             try:
+                location = Value(self._line_address, relocation=1,
+                                 layout=() if self._section is None else
+                                 ((self._section.name, self._line_index, 1),))
                 expr, coefficients = evaluate_address(
                     f"({leading_address})+({inner})" if leading_address else inner,
-                    self._lookup, self._line_address, self._integer_function)
+                    self._lookup, location, self._integer_function)
             except ExpressionError as exc:
                 raise self._error(str(exc)) from exc
             self._require(all(coefficient == 1 for coefficient in coefficients.values()),
                           "invalid 8086 effective address")
             bases = list(coefficients)
+            selection_displacement = None
+            if self.compatibility == "nasm3" and expr.relocation == -1 and not expr.unresolved:
+                section_terms: dict[str, int] = {}
+                for name, _, coefficient in expr.layout or ():
+                    section_terms[name] = section_terms.get(name, 0) + coefficient
+                section_terms = {name: coefficient for name, coefficient in section_terms.items()
+                                 if coefficient}
+                self._require(self._section is not None and
+                              section_terms == {self._section.name: -1},
+                              "invalid effective address: impossible segment base multiplier")
+                if bases:
+                    # NASM parser.c marks a negative current-section base as
+                    # self-relative. memory_mod() and disp8 use its section
+                    # offset, while a word displacement goes through flat
+                    # relocation. Preserve that distinction, including zero
+                    # displacement and explicit BYTE/WORD, only in nasm3.
+                    selection_displacement = expr.number + self._section.base
             self._require(displacement_width in (None, 8, 16) or
                           (displacement_width == 32 and not bases),
                           "invalid 8086 displacement size")
@@ -130,7 +151,8 @@ class InstructionEncodingMixin:
                            distance_flags=frozenset(distance_flags),
                            displacement_width=displacement_width,
                            direct_byte_form=direct_byte_form,
-                           address_width=address_width)
+                           address_width=address_width,
+                           selection_displacement=selection_displacement)
         if segment: raise self._error("segment override requires memory operand")
         if ":" in text:
             far = _split(text, ":")
@@ -155,50 +177,69 @@ class InstructionEncodingMixin:
             self._wide_displacements.add(site)
         conservative = (self.optimize <= 1 and site in self._wide_displacements and
                         (self.compatibility != "nasm3" or operand.expr.unresolved or
-                         operand.expr.relocation != 0))
+                         (operand.expr.relocation != 0 and
+                          operand.selection_displacement is None)))
         return self._prefix(operand) + bytes((opcode,)) + _modrm(field, operand, width, conservative)
 
     def _require(self, condition: bool, message: str = "invalid operand combination") -> None:
         if not condition: raise self._error(message)
 
-    def _forward_short_delta(self, delta: int, target: int, short_size: int,
+    def _forward_short_delta(self, delta: int, target: Value, short_size: int,
                              prefix_size: int) -> int:
-        """Predict a forward target after shortening this branch.
+        """Predict movement of an affine target when this branch shrinks.
 
-        A preceding pass's target still includes the old branch length. Plain
-        subtraction is wrong across ALIGN: padding can absorb some or all of
-        the shrink, and can otherwise make passes oscillate at 127/128 bytes.
+        Numeric address equality cannot identify a target's defining label.
+        Follow source-position dependencies instead, including EQU aliases and
+        addends. ALIGN may absorb the saving before a dependent label is reached.
         """
         saving = max(0, self._old_size - prefix_size - short_size)
-        if (not saving or self._pass == 0 or self._in_times or
-                target not in self._previous.values() or
+        if (not saving or self._pass == 0 or self._in_times or not target.forward or
+                not target.layout or
                 self._line_index >= len(self._previous_line_positions)):
             return delta
-        old_address, section = self._previous_line_positions[self._line_index]
-        if section != self._section.name or target <= old_address:
+        section = self._section.name
+        if (self._previous_line_positions[self._line_index][1] != section or
+                any(name != section for name, _, _ in target.layout)):
             return delta
-        for index in range(self._line_index + 1, len(self._previous_line_positions)):
-            address, line_section = self._previous_line_positions[index]
-            if line_section != section or address >= target:
+        dependencies = {line: coefficient for _, line, coefficient in target.layout
+                        if line > self._line_index}
+        if not dependencies:
+            return delta
+        last = max(dependencies)
+        if last >= len(self._previous_line_positions):
+            return delta
+        movement = 0
+        position_savings = {}
+        for index in range(self._line_index + 1, last + 1):
+            position_savings[index] = saving
+            # Labels bind to the start of their line, before its own ALIGN.
+            movement += dependencies.get(index, 0) * saving
+            if index == last:
+                break
+            _, line_section = self._previous_line_positions[index]
+            if line_section != section:
                 continue
             if (index >= len(self._older_line_sizes) or
                     self._previous_line_sizes[index] != self._older_line_sizes[index]):
-                # The following bytes are not stable yet; leave this branch
-                # wide until its forward span settles.
                 self._deferred_branch_relax = True
                 return delta
-            line = _comment(self._lines[index].text).strip()
-            if line.startswith("[") and line.endswith("]"):
-                line = line[1:-1].strip()
-            alignment = re.match(r"(?i)^alignb?\s+([^,\s]+)", line)
-            if alignment:
-                number = _number(alignment.group(1), dollarhex=self._dollarhex)
-                if number is None or number <= 0:
-                    return delta
+            size_layout = self._previous_line_size_layouts.get(index, ())
+            if size_layout is None:
+                return delta  # No affine prediction for this directive's size.
+            size_saving = 0
+            for name, position, coefficient in size_layout:
+                if name != section or position > index:
+                    return delta  # Depends on a position not yet simulated.
+                size_saving += coefficient * position_savings.get(position, 0)
+            if self._previous_line_sizes[index] - size_saving < 0:
+                return delta
+            saving += size_saving
+            alignment = self._previous_line_alignments.get(index)
+            if alignment is not None:
                 old_padding = self._previous_line_sizes[index]
-                new_padding = (old_padding + saving) % number
+                new_padding = (old_padding + saving) % alignment
                 saving += old_padding - new_padding
-        return delta - saving
+        return delta - movement
 
     def _encode(self, mnemonic: str, ops: list[Operand], prefix_size: int = 0,
                 repne_prefix: bool = False,
@@ -273,7 +314,7 @@ class InstructionEncodingMixin:
             instruction_address = self._address + prefix_size
             delta = op.expr.number - (instruction_address + short_size)
             if op.expr.symbolic and op.expr.number > self._address:
-                delta = self._forward_short_delta(delta, op.expr.number,
+                delta = self._forward_short_delta(delta, op.expr,
                                                   short_size, prefix_size)
             conditional = 0x70 <= JCC[mnemonic] <= 0x7F
             cross_section = op.expr.section is not None and op.expr.section != self._section.name
@@ -282,7 +323,12 @@ class InstructionEncodingMixin:
             site = (self._line.filename, self._line.number)
             if self.compatibility == "nasm3" and self.optimize == 1 and conditional and op.qualifier != "short":
                 self._wide_jcc.add(site)
-            if (conditional and (repne_prefix or (op.strict and op.qualifier != "short") or
+            # An EQU defined earlier in this pass can still be unresolved.
+            # Start it wide; unlike a direct forward label it cannot use the
+            # current instruction's forward-reference relaxation prediction.
+            unresolved_equ = (self.compatibility == "nasm3" and op.expr.unresolved and
+                              not op.expr.forward and op.qualifier != "short")
+            if (conditional and (unresolved_equ or repne_prefix or (op.strict and op.qualifier != "short") or
                     (not op.expr.unresolved and op.qualifier != "short" and
                      (op.qualifier == "near" or cross_section or site in self._wide_jcc or
                       modern_absolute or (not _signed8(delta) and
@@ -290,7 +336,10 @@ class InstructionEncodingMixin:
                 wide_size = 7 if long_target else 5
                 return bytes((JCC[mnemonic] ^ 1, 3, 0xE9)) + _word(
                     op.expr.number - (instruction_address + wide_size), 4 if long_target else 2)
-            if (op.expr.symbolic or op.expr.relocation) and not op.expr.unresolved and not _signed8(delta):
+            # Keep NASM's linear layout-based encoding choice above, but
+            # validate a selected rel8 using the CPU's wrapping 16-bit IP.
+            fits_rel8 = _signed8 if long_target or forced_operand_width == 32 else _signed8_word
+            if (op.expr.symbolic or op.expr.relocation) and not op.expr.unresolved and not fits_rel8(delta):
                 self._range_errors.append((self._line.filename, self._line.number))
             return branch_prefix + bytes((JCC[mnemonic], delta & 0xFF))
         if mnemonic in ("jmp", "call"):
@@ -314,8 +363,8 @@ class InstructionEncodingMixin:
             near_size = (5 if long_target else 3) + len(prefix)
             instruction_address = self._address + prefix_size
             delta8 = op.expr.number - (instruction_address + short_size)
-            if mnemonic == "jmp" and op.expr.symbolic and op.expr.number > self._address and self._pass > 0 and not self._in_times:
-                delta8 -= max(0, self._old_size - prefix_size - short_size)
+            if mnemonic == "jmp" and op.expr.symbolic and op.expr.number > self._address:
+                delta8 = self._forward_short_delta(delta8, op.expr, short_size, prefix_size)
             site = (self._line.filename, self._line.number)
             cross_section = op.expr.section is not None and op.expr.section != self._section.name
             if mnemonic == "jmp" and self.optimize <= 1 and self._pass == 0 and op.expr.unresolved and op.qualifier is None:
@@ -325,7 +374,8 @@ class InstructionEncodingMixin:
             if mnemonic == "jmp" and op.qualifier != "near" and (op.qualifier == "short" or
                     (not op.strict and not modern_unqualified_near and not cross_section and site not in self._wide_jumps and
                      not op.expr.unresolved and _signed8(delta8))):
-                if (op.expr.symbolic or op.expr.relocation) and not op.expr.unresolved and not _signed8(delta8):
+                fits_rel8 = _signed8 if long_target else _signed8_word
+                if (op.expr.symbolic or op.expr.relocation) and not op.expr.unresolved and not fits_rel8(delta8):
                     self._range_errors.append((self._line.filename, self._line.number))
                 return prefix + bytes((0xEB, delta8 & 0xFF))
             self._require(op.qualifier != "short")
@@ -419,9 +469,10 @@ class InstructionEncodingMixin:
                 self._require(src.width in (None, 8), "invalid operand sizes")
             accumulator_fit = (_signed8_word(src.expr.number) if self.compatibility == "nasm3"
                                else ((src.expr.number + 0x80) & 0xFFFFFFFF) <= 0xFF)
+            relocatable = self.compatibility == "nasm3" and src.expr.relocation != 0
             accumulator_short = dst.width == 16 and (src.width == 8 or
                                  (self.optimize > (0 if self.compatibility == "nasm3" else 1) and
-                                  not src.strict and not src.expr.unresolved and accumulator_fit))
+                                  not src.strict and not src.expr.unresolved and not relocatable and accumulator_fit))
             if dst.kind == "reg" and src.kind == "imm" and dst.reg == 0 and not accumulator_short:
                 return bytes((base + (4 if dst.width == 8 else 5),)) + _word(src.expr.number, dst.width // 8)
             if dst.kind in ("reg", "mem") and src.kind == "imm":
@@ -432,7 +483,7 @@ class InstructionEncodingMixin:
                 preserve_forward = self.compatibility == "nasm09839" and self.optimize <= 1 and (
                     self._line.filename, self._line.number) in self._wide_immediates
                 short = src.width == 8 or (self.optimize > 0 and not preserve_word and not src.strict and
-                                           not preserve_forward and not src.expr.unresolved and
+                                           not preserve_forward and not src.expr.unresolved and not relocatable and
                                            _signed8_word(src.expr.number))
                 return self._rm(0x83 if short else 0x81, field, dst, 16) + _word(src.expr.number, 1 if short else 2)
             if src.kind == "reg" and dst.kind in ("reg", "mem"):
@@ -498,6 +549,7 @@ class InstructionEncodingMixin:
                      "dy": 32, "dz": 64,
                      "bf16": 2}[directive]
         output = bytearray()
+        size_layout = ()
         items = _split(arguments)
         if items and items[-1] == "": items.pop()
         for arg in items:
@@ -513,9 +565,11 @@ class InstructionEncodingMixin:
                     arg = size.group(2).strip()
                 if arg.startswith("%(") and arg.endswith(")"):
                     output.extend(self._data(directive, arg[2:-1], item_width))
+                    size_layout = combine_layout("+", size_layout, self._size_layout, 0, 0)
                     continue
                 if size and arg.startswith("(") and arg.endswith(")"):
                     output.extend(self._data(directive, arg[1:-1], item_width))
+                    size_layout = combine_layout("+", size_layout, self._size_layout, 0, 0)
                     continue
             if arg == "?":
                 output.extend(bytes(item_width))
@@ -528,7 +582,11 @@ class InstructionEncodingMixin:
                     final_item = _split(match.group(2))[-1]
                     self._require(not re.match(r"(?is)^.+?\s+dup\s*\(.*\)$", final_item),
                                   "nested DUP cannot end a data list in this NASM profile")
-                output.extend(self._data(directive, match.group(2), item_width) * amount.number)
+                element = self._data(directive, match.group(2), item_width)
+                repeated = combine_layout("*", amount.layout, self._size_layout,
+                                          amount.number, len(element))
+                size_layout = combine_layout("+", size_layout, repeated, 0, 0)
+                output.extend(element * amount.number)
                 continue
             if arg[0] in "'\"`" and arg[-1:] == arg[0]:
                 content = string_bytes(arg)
@@ -552,6 +610,7 @@ class InstructionEncodingMixin:
                 self._require(item_width <= 8 and directive != "bf16",
                               f"{directive.upper()} requires a floating-point constant")
                 output.extend(_word(self._eval(arg).number, item_width))
+        self._size_layout = size_layout
         return bytes(output)
 
     @staticmethod
@@ -606,6 +665,7 @@ class InstructionEncodingMixin:
         raise self._error("invalid FPU operand combination")
 
     def _instruction(self, text: str) -> bytes:
+        self._size_layout = ()
         text = text.strip()
         bracketed = text.startswith("[") and text.endswith("]")
         if bracketed:
@@ -691,6 +751,8 @@ class InstructionEncodingMixin:
             self._require(not alignment.unresolved and alignment.number > 0 and
                           alignment.number & (alignment.number - 1) == 0,
                           "SECTALIGN needs a power of two")
+            if self._section is not None:
+                self._record_section_attribute(self._section, "align")
             if self._section is not None and alignment.number > self._section.align:
                 self._section.align = alignment.number
                 self._layout_sections()
@@ -706,12 +768,18 @@ class InstructionEncodingMixin:
             return self._data(mnemonic, arguments)
         if mnemonic in ("resb", "resw", "resd", "resq", "rest", "reso", "resy", "resz"):
             count = self._eval(arguments)
-            self._require(not count.unresolved and
+            # NASM3 permits forward reservation counts. Use their provisional
+            # size until the normal symbol/layout convergence checks finish;
+            # unresolved names and self-growing layouts still fail there.
+            self._require((not count.unresolved or self.compatibility == "nasm3") and
                           (count.number >= 0 or self.compatibility == "nasm3"),
                           "invalid reserve count")
-            return bytes(max(0, count.number) *
-                         {"resb": 1, "resw": 2, "resd": 4, "resq": 8,
-                          "rest": 10, "reso": 16, "resy": 32, "resz": 64}[mnemonic])
+            self._require(self.compatibility != "nasm3" or count.unresolved or
+                          count.relocation == 0, "reserve count must be scalar")
+            unit = {"resb": 1, "resw": 2, "resd": 4, "resq": 8,
+                    "rest": 10, "reso": 16, "resy": 32, "resz": 64}[mnemonic]
+            self._size_layout = scale_layout(count.layout, unit) if count.number >= 0 else None
+            return bytes(max(0, count.number) * unit)
         if mnemonic == "alignmode":
             self._require(self._smartalign_active, "ALIGNMODE requires %use smartalign")
             parts = _split(arguments)
@@ -744,6 +812,8 @@ class InstructionEncodingMixin:
             if updates_section:
                 self._require(alignment.number & (alignment.number - 1) == 0,
                               "section alignment needs a power of two")
+            if updates_section and self._section is not None:
+                self._record_section_attribute(self._section, "align")
             if (updates_section and
                     self._section is not None and alignment.number > self._section.align):
                 self._section.align = alignment.number
@@ -751,6 +821,7 @@ class InstructionEncodingMixin:
             relative_address = (self._address - self._section.base if self._section is not None
                                 else self._address)
             padding = (-relative_address) % alignment.number
+            self._line_alignments[self._line_index] = alignment.number
             if len(parts) == 1:
                 if mnemonic == "align" and self._smartalign_active:
                     if (self._smartalign_threshold >= 0 and
