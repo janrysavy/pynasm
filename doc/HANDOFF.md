@@ -17,5 +17,7 @@ TIMES validation. Full final native suite: 258 methods, 257 passed/one optional
 skip. Four new regression methods pass 870 Python and 435 native corpus checks.
 Details: doc/PRO_REMAINDER_TIMES.md; full log in its compressed receipt.
 
-WIP: final Windows/Linux CI must pass on this exact head before merge/pinning.
+FINISHED: final Windows/Linux push and PR CI passed on 4c227433. PR27 merged
+as 96dc887; original PR25/26 are marked merged. No source work remains open.
+Parent integration must pin the current master and replay worker/image proof.
 Do not infer Pascal or gameplay proof from assembler tests.
