@@ -11,6 +11,7 @@ pass; template and program goldens were freshly verified. Negative-address
 fixtures replay 3,288 outcomes. Native suite: 214 pass, one optional corpus
 skip. Portable suite: 195 pass, 20 explicit optional skips. Scope/exclusions,
 receipts and exact replay commands: doc/PR_REVIEW_20260930.md and doc/evidence/.
+Merge/check status and exact branch cleanup: doc/evidence/integration_closed_20260930.json.gz.
 
 No open pynasm PR or unfinished code slice from this stack remains. The parent
 tracks its own pin integration and historical compiler-receipt validation.
