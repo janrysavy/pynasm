@@ -10,8 +10,12 @@ FINISHED: PR26 expression parsing also passes six focused methods, including
 
 FINISHED: the unfinished first-pass branch is preserved. All 435 historical
 native outcomes were reproduced; its source digest was corrected to an explicit
-JSON encoding. Pynasm disagrees on 84 of 145 cases before a fix.
+JSON encoding. Before repair, pynasm disagreed on 84 of 145 cases; all now agree.
 
-WIP: fix first-pass TIMES unknown-vector cancellation/defined EQU semantics, then
-run the full native suite and final Windows/Linux CI before merging/pinning.
+FINISHED: generic UNKNOWN-vector cancellation, EQU projection and immediate
+TIMES validation. Full final native suite: 258 methods, 257 passed/one optional
+skip. Four new regression methods pass 870 Python and 435 native corpus checks.
+Details: doc/PRO_REMAINDER_TIMES.md; full log in its compressed receipt.
+
+WIP: final Windows/Linux CI must pass on this exact head before merge/pinning.
 Do not infer Pascal or gameplay proof from assembler tests.

@@ -170,8 +170,13 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
 
     def _equ_value(self, value: Value) -> Value:
         """NASM EQU stores one segment/offset, not a self-relative vector."""
-        if self.compatibility != 'nasm3' or value.unresolved:
+        if self.compatibility != 'nasm3':
             return value
+        if value.unresolved:
+            # parse_operand() projects an unknown immediate to segment/offset;
+            # define_equ() then publishes that scalar placeholder this pass.
+            # Later passes replace it, rather than preserving UNKNOWN flags.
+            return Value(0, symbolic=True, layout=None)
         bases = _bases(value)
         positive = [(section, coefficient) for section, coefficient in bases if coefficient > 0]
         negative = [(section, coefficient) for section, coefficient in bases if coefficient < 0]
@@ -407,8 +412,9 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                                                  dollarhex=self._dollarhex, strict_scalars=True)
                 except ExpressionError as exc:
                     raise self._error(str(exc)) from exc
-                self._require(count.unresolved or
-                              (count.relocation == 0 and not _bases(count)),
+                self._require(not count.unresolved,
+                              "TIMES count must be known on its first pass")
+                self._require(count.relocation == 0 and not _bases(count),
                               "TIMES count must be scalar")
                 count_text = tail[:end]
                 remaining = tail[end:].lstrip()
