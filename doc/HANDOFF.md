@@ -1,16 +1,16 @@
-# Handoff - location and count fixes validated, 2026-09-30
+# Handoff - PR24 integrated, 2026-09-30
 
-FINISHED locally: issue #19 reproduced and fixed through assembly-aware
-preprocessing. 294 captured NASM comparisons pass. PRO PR21-23 are integrated
-into this branch with their original commit history; 20 combined focused
-methods and the 244-method native suite pass (one optional corpus skip).
-The complete DOSCTRL worker matches native NASM, including its historical
-3,091-byte hash. Evidence: doc/PREPROCESSOR_LOCATION.md and linked receipt.
+FINISHED: PR24 merged as 2e2f8ea after Windows/Linux checks passed on its
+final head 5d5c562. Original PR21-23 heads are ancestors of master; their
+fixes are retained, with PR22 merged and PR21/23 closed as integrated.
+Issue #19 is resolved with assembly-aware preprocessing and location metadata.
 
-WIP: PR24 awaits final Windows/Linux CI on this documentation head, then
-merge and remove integrated feature/transfer branches. Parent pin upgrade
-and full parent parity/static validation remain WIP. Do not claim new Pascal
-translation or gameplay evidence from these assembler-only checks.
+Native NASM suite: 244 methods, 243 passed/one optional corpus skip. All 294
+location-context outcomes agree, and the full 3,091-byte DOSCTRL worker
+retains the historical byte/hash identity. Evidence and full logs:
+doc/PREPROCESSOR_LOCATION.md and its linked receipt.
 
-Earlier PR16-18 were integrated through PR20. Use one bounded game-owned
-ASM-to-Pascal routine for the next PRO run after parent synchronization.
+Other PRO work is still running; preserve its feature/transfer branches.
+This commit only refreshes the merge state; parent pin and full parent checks
+are handled in the parent HANDOFF. Do not infer new Pascal translation or
+gameplay evidence from assembler validation.
