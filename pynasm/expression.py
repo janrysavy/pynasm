@@ -127,6 +127,27 @@ def _apply(op: str, a: int, b: int) -> int:
     raise ExpressionError(f"unknown operator {op}")
 
 
+
+def _relocation(op: str, a: Value, b: Value) -> int:
+    """Combine section-base coefficients separately from numeric values."""
+    if op == "+":
+        return a.relocation + b.relocation
+    if op == "-":
+        return a.relocation - b.relocation
+    if op == "*":
+        if a.relocation and b.relocation:
+            raise ExpressionError("unable to multiply two non-scalar objects")
+        return a.relocation * b.number + b.relocation * a.number
+    return 0
+
+
+def _require_simple_relocation(value: Value) -> None:
+    # Intermediate products may have any coefficient and cancel later, but
+    # a complete operand/EQU/data expression must be simple or relocatable.
+    if not value.unresolved and value.relocation not in (-1, 0, 1):
+        raise ExpressionError("expression is not simple or relocatable")
+
+
 def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
              functions: Callable[[str, Value], Value | None] | None = None, *,
              allow_trailing: bool = False, dollarhex: bool = True) -> Value:
@@ -213,8 +234,7 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
             left = Value(_apply(op, left.number, right.number),
                          left.unresolved or right.unresolved or unknown_comparison,
                          left.symbolic or right.symbolic,
-                         section, (left.relocation + right.relocation if op == "+" else
-                                   left.relocation - right.relocation if op == "-" else 0),
+                         section, _relocation(op, left, right),
                          combine_layout(op, left.layout, right.layout,
                                         left.number, right.number),
                          left.forward or right.forward)
@@ -223,6 +243,7 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
     result = parse()
     if not allow_trailing and index != len(tokens):
         raise ExpressionError(f"unexpected token {tokens[index]!r}")
+    _require_simple_relocation(result)
     return result
 
 
@@ -318,13 +339,14 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                                 if coefficient}
                 relocation = a.relocation + sign * b.relocation
             elif op == "*":
-                if ac and bc or (ac and b.unresolved) or (bc and a.unresolved):
+                if ((ac or a.relocation) and (bc or b.relocation) or
+                        (ac and b.unresolved) or (bc and a.unresolved)):
                     raise ExpressionError("nonlinear effective address")
                 coefficients = ({reg: coefficient * b.number for reg, coefficient in ac.items()}
                                 if ac else {reg: coefficient * a.number for reg, coefficient in bc.items()})
                 coefficients = {reg: coefficient for reg, coefficient in coefficients.items()
                                 if coefficient}
-                relocation = 0
+                relocation = _relocation(op, a, b)
             else:
                 if ac or bc:
                     raise ExpressionError("nonlinear effective address")
@@ -339,4 +361,5 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
 
     result = parse()
     if index != len(tokens): raise ExpressionError(f"unexpected token {tokens[index]!r}")
+    _require_simple_relocation(result[0])
     return result
