@@ -72,6 +72,10 @@ class Value:
     # Optimizer provenance is not part of the public numeric Value identity.
     layout: Layout = field(default=(), compare=False, repr=False)
     forward: bool = field(default=False, compare=False, repr=False)
+    # Section identity survives even when an expression is non-affine in
+    # source positions. None derives bases from a newly constructed label's
+    # layout; computed expressions carry an explicit (possibly empty) vector.
+    bases: tuple[tuple[str, int], ...] | None = field(default=None, compare=False, repr=False)
 
 
 def string_bytes(token: str) -> bytes:
@@ -148,13 +152,38 @@ def _require_simple_relocation(value: Value) -> None:
         raise ExpressionError("expression is not simple or relocatable")
 
 
-def _is_scalar(value: Value) -> bool:
-    # A cross-section subtraction can have total coefficient zero while
-    # still containing two distinct section bases. Same-section terms cancel.
-    bases: dict[str, int] = {}
+def _bases(value: Value) -> tuple[tuple[str, int], ...]:
+    if value.bases is not None:
+        return value.bases
+    terms: dict[str, int] = {}
     for section, _, coefficient in value.layout or ():
-        bases[section] = bases.get(section, 0) + coefficient
-    return not value.relocation and not any(bases.values())
+        terms[section] = terms.get(section, 0) + coefficient
+    return tuple((section, coefficient) for section, coefficient in sorted(terms.items())
+                 if coefficient)
+
+
+def _combine_bases(op: str, a: Value, b: Value) -> tuple[tuple[str, int], ...]:
+    if op not in ('+', '-', '*'):
+        return ()
+    terms: dict[str, int] = {}
+    factors = (b.number, a.number) if op == '*' else (1, -1 if op == '-' else 1)
+    for value, factor in zip((a, b), factors):
+        for section, coefficient in _bases(value):
+            terms[section] = terms.get(section, 0) + coefficient * factor
+    return tuple((section, coefficient) for section, coefficient in sorted(terms.items())
+                 if coefficient)
+
+
+def _unary_bases(op: str, value: Value) -> tuple[tuple[str, int], ...]:
+    if op == '+':
+        return _bases(value)
+    if op == '-':
+        return tuple((section, -coefficient) for section, coefficient in _bases(value))
+    return ()
+
+
+def _is_scalar(value: Value) -> bool:
+    return not value.relocation and not _bases(value)
 
 
 def _require_scalar(value: Value) -> None:
@@ -176,7 +205,8 @@ def _binary_number(op: str, a: Value, b: Value, strict_scalars: bool, *,
         difference = Value(a.number - b.number,
                            relocation=a.relocation - b.relocation,
                            layout=combine_layout('-', a.layout, b.layout,
-                                                 a.number, b.number))
+                                                 a.number, b.number),
+                           bases=_combine_bases('-', a, b))
         if different_registers or not _is_scalar(difference):
             if op in ('=', '=='):
                 return 0
@@ -229,7 +259,8 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
                          child.relocation if token == "+" else (-child.relocation if token == "-" else 0),
                          child.layout if token == "+" else
                          scale_layout(child.layout, -1) if token in ("-", "~") else
-                         (() if child.layout == () else None), child.forward)
+                         (() if child.layout == () else None), child.forward,
+                         bases=_unary_bases(token, child))
         elif token == "(":
             left = parse()
             if index >= len(tokens) or tokens[index] != ")": raise ExpressionError("missing ')'")
@@ -273,7 +304,8 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
                                  when_true.unresolved or when_false.unresolved,
                                  chosen.symbolic, chosen.section, chosen.relocation,
                                  chosen.layout if left.layout == () else None,
-                                 left.forward or when_true.forward or when_false.forward)
+                                 left.forward or when_true.forward or when_false.forward,
+                                 bases=_bases(chosen))
                 continue
             precedence = _PRECEDENCE.get(op, -1)
             if precedence < min_precedence: break
@@ -288,7 +320,8 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
                          section, _relocation(op, left, right),
                          combine_layout(op, left.layout, right.layout,
                                         left.number, right.number),
-                         left.forward or right.forward)
+                         left.forward or right.forward,
+                         bases=_combine_bases(op, left, right))
         return left
 
     result = parse()
@@ -333,7 +366,8 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                           (-value.relocation if token == "-" else 0),
                           value.layout if token == "+" else
                           scale_layout(value.layout, -1) if token in ("-", "~") else
-                          (() if value.layout == () else None), value.forward),
+                          (() if value.layout == () else None), value.forward,
+                          bases=_unary_bases(token, value)),
                     {reg: coefficient * (-1 if token == "-" else 1)
                      for reg, coefficient in coeffs.items()})
         elif token == "(":
@@ -422,7 +456,8 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                           a.unresolved or b.unresolved or unknown_comparison,
                           a.symbolic or b.symbolic, section, relocation,
                           combine_layout(op, a.layout, b.layout, a.number, b.number),
-                          a.forward or b.forward), coefficients)
+                          a.forward or b.forward,
+                          bases=_combine_bases(op, a, b)), coefficients)
         return left
 
     result = parse()
