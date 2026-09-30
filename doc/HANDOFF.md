@@ -8,8 +8,11 @@ FINISHED locally: unknown denominator deferral, scalar operator validation in
 both parsers and scalar-EQU Jcc sizing. Corrected arithmetic fixtures have
 324 rejections; 348 old-head failures now pass. Both CPU aliases replay 1,260
 outcomes; 217 native-enabled test methods pass with one external-corpus skip.
-WIP: run final stress/portable checks and final-head Windows/Linux CI before
-merging PR #15. Then remove the one-off packaging branch and update parent pin.
+FINISHED: portable suite 196 pass/21 explicit optional skips; native branch
+matrix 1,944 outcomes and 300 generated program comparisons pass. Repair-head
+Windows/Linux CI passed; logs and hashes are in doc/evidence/pro_expression_recovery_20260930.json.gz.
+WIP: final documentation-head CI before merging PR #15. Then remove the
+one-off packaging branch and update parent pin. No Pascal translation added.
 
 FINISHED: PR #14 merged after final Windows/Linux CI passed. All original
 heads #3–#13 are ancestors of master. #11's failing regression and the
