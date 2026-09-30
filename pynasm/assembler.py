@@ -9,7 +9,7 @@ from ._preprocessor_source import SourceReaderMixin
 from ._instruction_encoding import InstructionEncodingMixin
 from .listing import ListingLine
 from ._layout import Layout, combine_layout
-from .expression import _bases
+from .expression import _bases, evaluate_prefix
 
 
 class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMixin, InstructionEncodingMixin):
@@ -385,6 +385,43 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self._section = section
         self._layout_sections()
 
+    def _split_times_prefixes(self, text: str) -> tuple[str | None, str | None]:
+        """Separate TIMES using expression grammar, not whitespace or opcode guesses.
+
+        NASM permits TIMES between other prefixes and lets a later TIMES replace
+        an earlier count. Preserve the other prefixes on each emitted body.
+        """
+        count_text = None
+        prefixes: list[str] = []
+        remaining = text
+        while remaining:
+            head = re.match(r"(?is)^([a-z][a-z0-9]*)\b(.*)$", remaining)
+            if head is None:
+                break
+            word, tail = head.group(1).lower(), head.group(2).lstrip()
+            if word == "times":
+                location = self._location_value(self._line_address)
+                try:
+                    count, end = evaluate_prefix(tail, self._lookup, location,
+                                                 self._integer_function,
+                                                 dollarhex=self._dollarhex, strict_scalars=True)
+                except ExpressionError as exc:
+                    raise self._error(str(exc)) from exc
+                self._require(count.unresolved or
+                              (count.relocation == 0 and not _bases(count)),
+                              "TIMES count must be scalar")
+                count_text = tail[:end]
+                remaining = tail[end:].lstrip()
+            elif word in PREFIX or word in ADDRESS_PREFIX or word in OPERAND_PREFIX:
+                prefixes.append(word)
+                remaining = tail
+            else:
+                break
+        if count_text is None:
+            return None, None
+        body = " ".join(prefixes + ([remaining] if remaining else []))
+        return count_text, body
+
     def _run_pass(self, previous_sizes: list[int], source_lines=None) -> tuple[bytes, list[int]]:
         self._declared_sections = {".text"}
         self._absolute_context = Value(0)
@@ -515,20 +552,23 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     if key in self.symbols: raise self._error(f"duplicate label {name}")
                     self._define_label(key)
                     text = orphan.group(2)
-            times = re.match(r"(?is)^times\s+(.+?)\s+(db|dw|dd|dq|resb|resw|resd|resq|[a-z]+)\b(.*)$", text)
-            count_text = times.group(1) if times else None
-            instruction = times.group(2) + times.group(3) if times else None
-            if count_text is None and re.match(r"(?i)^times\s*\(", text):
-                start = text.index("(")
-                depth = 0
-                for position in range(start, len(text)):
-                    if text[position] == "(": depth += 1
-                    elif text[position] == ")":
-                        depth -= 1
-                        if depth == 0: break
-                if depth: raise self._error("unterminated TIMES count")
-                count_text = text[start:position + 1]
-                instruction = text[position + 1:].strip()
+            if self.compatibility == "nasm3":
+                count_text, instruction = self._split_times_prefixes(text)
+            else:
+                times = re.match(r"(?is)^times\s+(.+?)\s+(db|dw|dd|dq|resb|resw|resd|resq|[a-z]+)\b(.*)$", text)
+                count_text = times.group(1) if times else None
+                instruction = times.group(2) + times.group(3) if times else None
+                if count_text is None and re.match(r"(?i)^times\s*\(", text):
+                    start = text.index("(")
+                    depth = 0
+                    for position in range(start, len(text)):
+                        if text[position] == "(": depth += 1
+                        elif text[position] == ")":
+                            depth -= 1
+                            if depth == 0: break
+                    if depth: raise self._error("unterminated TIMES count")
+                    count_text = text[start:position + 1]
+                    instruction = text[position + 1:].strip()
             if count_text is not None:
                 count = self._eval(count_text)
                 # A numeric offset is not a repetition count until every
@@ -540,6 +580,10 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 if count.unresolved or count.number < 0:
                     self._invalid_times = True
                     count = Value(0)
+                if not instruction:
+                    # A bare TIMES emits nothing, without iterating its count.
+                    sizes.append(0)
+                    continue
                 if self.compatibility == "nasm3" and count.number == 0:
                     self._instruction(instruction, emit=False)
                 encoded = bytearray()

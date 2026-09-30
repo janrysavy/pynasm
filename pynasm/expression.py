@@ -230,7 +230,26 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
              functions: Callable[[str, Value], Value | None] | None = None, *,
              allow_trailing: bool = False, dollarhex: bool = True,
              strict_scalars: bool = False) -> Value:
+    """Evaluate one expression, optionally allowing unconsumed source text."""
+    return _evaluate(source, lookup, location, functions,
+                     allow_trailing=allow_trailing, dollarhex=dollarhex,
+                     strict_scalars=strict_scalars)[0]
+
+
+def evaluate_prefix(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
+                    functions: Callable[[str, Value], Value | None] | None = None, *,
+                    dollarhex: bool = True, strict_scalars: bool = False) -> tuple[Value, int]:
+    """Return the expression value and character offset immediately after it."""
+    return _evaluate(source, lookup, location, functions, allow_trailing=True,
+                     dollarhex=dollarhex, strict_scalars=strict_scalars)
+
+
+def _evaluate(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
+             functions: Callable[[str, Value], Value | None] | None = None, *,
+             allow_trailing: bool = False, dollarhex: bool = True,
+             strict_scalars: bool = False) -> tuple[Value, int]:
     tokens: list[str] = []
+    token_ends: list[int] = []
     pos = 0
     while pos < len(source):
         if source[pos:].isspace(): break
@@ -240,6 +259,7 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
                 break
             raise ExpressionError(f"invalid expression near {source[pos:]!r}")
         tokens.append(match.group(1))
+        token_ends.append(match.end())
         pos = match.end()
     index = 0
 
@@ -330,7 +350,7 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
     if not allow_trailing and index != len(tokens):
         raise ExpressionError(f"unexpected token {tokens[index]!r}")
     _require_simple_relocation(result)
-    return result
+    return result, token_ends[index - 1]
 
 
 def evaluate_address(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
