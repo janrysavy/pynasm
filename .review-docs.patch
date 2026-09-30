@@ -1,0 +1,47 @@
+--- a/doc/TESTS.md
++++ b/doc/TESTS.md
+@@ -1,4 +1,12 @@
+ # 8086/8088 assembler test plan and status
++
++## 2026-09-30 source-ledger and integer-boundary additions
++
++See [NASM_ROADMAP_TESTS.md](NASM_ROADMAP_TESTS.md) for the 524-row machine-readable
++source inventory, 7,852-case portable corpus, 35,980-case opt-in matrix, paired
++CPU rejections, semantic reference pin, exact commands and remaining gates.
++These supplement, rather than replace, the existing catalog below.
++
+ 
+ The active plan for **tests still to implement** is in
+ [FUTURE_TESTS.md](FUTURE_TESTS.md). This file catalogs existing checks,
+--- a/doc/PROGRESS.md
++++ b/doc/PROGRESS.md
+@@ -1,4 +1,13 @@
+ # NASM 8086/8088 compatibility progress
++
++## 2026-09-30 additional verified test slice
++
++[The source-ledger and integer-boundary slice](NASM_ROADMAP_TESTS.md) adds a
++524-row inventory and 47,112 portable integer-case comparisons. New opt-in
++matrices pass 107,940 comparisons for each CPU alias. Local full suite: 159
++methods, 158 passed and one optional corpus skipped. Instruction completeness
++remains open; the inventory explicitly retains untested/excluded rows.
++
+ 
+ Updated 2026-09-27. The target is a pure-Python assembler with full NASM
+ compatibility for 8086/8088 source. The current implementation emits flat
+--- a/doc/FUTURE_TESTS.md
++++ b/doc/FUTURE_TESTS.md
+@@ -1,4 +1,13 @@
+ # Future test implementation roadmap
++
++## 2026-09-30 partial implementation note
++
++P0.1 and P0.4 now have [a source ledger and new boundary matrices](NASM_ROADMAP_TESTS.md).
++All 524 tagged rows are inventoried; 337 integer representatives and selected
++boundaries are checked. OPT rows and strict-CPU divergences are explicit.
++This is **partial coverage**, not closure: per-row selection boundaries, full
++program interactions, and the other gates below still require implementation.
++
+ 
+ Updated 2026-09-27. This is the active plan for tests that **still need to be
+ implemented**. [TESTS.md](TESTS.md) catalogs tests that already exist and how
