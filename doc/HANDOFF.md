@@ -2,7 +2,7 @@
 
 FINISHED: PR24 merged as 2e2f8ea after Windows/Linux checks passed on its
 final head 5d5c562. Original PR21-23 heads are ancestors of master; their
-fixes are retained, with PR22 merged and PR21/23 closed as integrated.
+fixes are retained, and GitHub marked all three PRs merged automatically.
 Issue #19 is resolved with assembly-aware preprocessing and location metadata.
 
 Native NASM suite: 244 methods, 243 passed/one optional corpus skip. All 294
