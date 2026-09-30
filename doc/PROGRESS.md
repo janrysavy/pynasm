@@ -1,5 +1,13 @@
 # NASM 8086/8088 compatibility progress
 
+## 2026-09-30 whole-program interaction results
+
+[The P0.2 slice](NASM_LAYOUT_TESTS.md) adds 26 accepted whole-program fixtures,
+six rejected layouts and an explicit reference-hang exclusion. It exposed and
+fixed late-alignment symbol addresses and mixed NOBITS attributes. The combined
+local suite now has 173 methods: 172 passed, one optional skip with NASM enabled.
+
+
 ## 2026-09-30 additional verified test slice
 
 [The source-ledger and integer-boundary slice](NASM_ROADMAP_TESTS.md) adds a

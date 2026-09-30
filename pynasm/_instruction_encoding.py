@@ -729,6 +729,8 @@ class InstructionEncodingMixin:
             self._require(not alignment.unresolved and alignment.number > 0 and
                           alignment.number & (alignment.number - 1) == 0,
                           "SECTALIGN needs a power of two")
+            if self._section is not None:
+                self._record_section_attribute(self._section, "align")
             if self._section is not None and alignment.number > self._section.align:
                 self._section.align = alignment.number
                 self._layout_sections()
@@ -783,6 +785,8 @@ class InstructionEncodingMixin:
             if updates_section:
                 self._require(alignment.number & (alignment.number - 1) == 0,
                               "section alignment needs a power of two")
+            if updates_section and self._section is not None:
+                self._record_section_attribute(self._section, "align")
             if (updates_section and
                     self._section is not None and alignment.number > self._section.align):
                 self._section.align = alignment.number
