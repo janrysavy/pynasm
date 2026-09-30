@@ -1,29 +1,13 @@
-# Current state
+# Handoff — PR integration review, 2026-09-30
 
-CLI compatibility slice: NASM lowercase `-i` now accepts separate and attached
-include paths, preserving search order. Failed assembly removes stale/partial
-output; the main source and its hard-link aliases are protected from overwrite.
-Regression tests reproduced the missing alias, stale output and source overwrite
-before the fix. Windows/Linux CI runs the standard-library unittest suite.
+FINISHED: original PR heads #3–#10, #12 and #13 each pass their local full suite
+with this computer's NASM 3.02. Regression sources for #3–#10 independently
+match native NASM. The combined checkout preserves all metadata from three
+merge conflicts and fixes the demonstrated forward-reservation interaction.
+Combined suite: 210 methods, 209 pass, one optional external-corpus skip.
+Exact inputs, source comparisons and logs: doc/evidence/pr_review_20260930_checkpoint.json.gz.
 
-Expanded-source listings are now available through `-l` and `Assembler.listing`.
-They retain final-pass bytes, source locations, section offsets and separate
-physical/virtual addresses. BSS/ABSOLUTE reservations carry no file bytes.
-Seven listing tests cover native NASM instruction rows, branch relaxation,
-includes/macros/INCBIN, sections, wrapping, stale state and failed-write cleanup.
-This is not NASM's macro/include event listing; see README for parser limits.
-Flat binaries remain the only output format; OMF is not implemented.
-Keep outputs separate from included input files.
-
-Local validation: 142 tests ran, 123 passed and 19 optional tests skipped.
-CLI regressions include hard-link protection and simulated partial-write cleanup.
-
-The first Windows CI run exposed CRLF conversion of binary goldens and an
-incompatible preinstalled NASM oracle. Fixtures now disable Git text conversion;
-CI explicitly disables live NASM discovery with an empty NASM variable. Live
-differential tests require the documented NASM 3.02 reference executable.
-
-Listing slice validation: 149 tests ran with NASM 3.02, 148 passed and one
-optional external-corpus test skipped. Downstream Pyro validation accounts for
-all 86,192 image bytes exactly once through listing records; image, wrapped EXE
-and Shift/LED carrier bytes remain unchanged.
+WIP: #11 remains regression-only and is not yet in this checkout. Investigate
+and repair its based negative-section displacement selection using the native
+reference. Then run combined native integer and whole-program sweeps, final CI,
+and merge. No remote merge has happened. Historical profile behavior is kept.

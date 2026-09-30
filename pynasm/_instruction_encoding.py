@@ -746,9 +746,14 @@ class InstructionEncodingMixin:
             return self._data(mnemonic, arguments)
         if mnemonic in ("resb", "resw", "resd", "resq", "rest", "reso", "resy", "resz"):
             count = self._eval(arguments)
-            self._require(not count.unresolved and
+            # NASM3 permits forward reservation counts. Use their provisional
+            # size until the normal symbol/layout convergence checks finish;
+            # unresolved names and self-growing layouts still fail there.
+            self._require((not count.unresolved or self.compatibility == "nasm3") and
                           (count.number >= 0 or self.compatibility == "nasm3"),
                           "invalid reserve count")
+            self._require(self.compatibility != "nasm3" or count.unresolved or
+                          count.relocation == 0, "reserve count must be scalar")
             unit = {"resb": 1, "resw": 2, "resd": 4, "resq": 8,
                     "rest": 10, "reso": 16, "resy": 32, "resz": 64}[mnemonic]
             self._size_layout = scale_layout(count.layout, unit) if count.number >= 0 else None
