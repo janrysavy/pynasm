@@ -1,14 +1,17 @@
-# Handoff — native-tested PR integration, 2026-09-30
+# Handoff — PR integration completed, 2026-09-30
 
-FINISHED: original PR heads #3–#13 are all preserved. #11's failing regression
-is repaired; combining #10/#13 needed a forward-reservation repair. Historical
-profile behavior stays unchanged. Native NASM 3.02 agrees on 215,880 integer,
-1,440 interaction and 300 branch comparisons, plus 1,011 template outcomes,
-96 freshly regenerated program-fixture outcomes and 3,288 address replay cases.
-Native-enabled suite: 215 methods, 214 pass, one optional corpus skip.
-Portable suite: 195 pass, 19 native-oracle methods and one corpus skipped.
-Exact scope/exclusions and receipts: doc/PR_REVIEW_20260930.md, doc/evidence/.
+FINISHED: PR #14 merged after final Windows/Linux CI passed. All original
+heads #3–#13 are ancestors of master. #11's failing regression and the
+#10/#13 reservation interaction are repaired. Superseded PRs are closed and
+all twelve review/integration branches are deleted; master is the only remote
+branch. Historical profile behavior remains unchanged.
 
-WIP: final documentation-head Windows/Linux CI, merge PR #14, close superseded
-drafts and delete their branches. The parent integrates the merged pin after
-its own checks. No remote merge has happened at this commit.
+Native NASM 3.02: 215,880 integer, 1,440 interaction and 300 branch comparisons
+pass; template and program goldens were freshly verified. Negative-address
+fixtures replay 3,288 outcomes. Native suite: 214 pass, one optional corpus
+skip. Portable suite: 195 pass, 20 explicit optional skips. Scope/exclusions,
+receipts and exact replay commands: doc/PR_REVIEW_20260930.md and doc/evidence/.
+
+No open pynasm PR or unfinished code slice from this stack remains. The parent
+tracks its own pin integration and historical compiler-receipt validation.
+Deferred template families and reference hangs are not claimed resolved.
