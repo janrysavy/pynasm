@@ -224,6 +224,8 @@ class Operand:
     displacement_width: int | None = None
     direct_byte_form: bool = False
     address_width: int | None = None
+    # NASM3 selects relative based-address displacements before flat relocation.
+    selection_displacement: int | None = None
 
 
 @dataclass
@@ -468,16 +470,18 @@ def _modrm(reg: int, rm: Operand, width: int, conservative: bool = False) -> byt
             return bytes((0x05 | (reg << 3),)) + _word(rm.expr.number, 4)
         return bytes((0x06 | (reg << 3),)) + _word(disp, 2)
     code = codes[bases]
+    selection = disp if rm.selection_displacement is None else rm.selection_displacement & 0xFFFF
+    known_scalar = not rm.expr.relocation or rm.selection_displacement is not None
     if rm.displacement_width == 8:
-        mod, extra = 1, _word(disp, 1)
+        mod, extra = 1, _word(selection, 1)
     elif rm.displacement_width == 16:
         mod, extra = 2, _word(disp, 2)
-    elif (not conservative and not rm.expr.unresolved and not rm.expr.relocation and
-          disp == 0 and bases != frozenset(("bp",))):
+    elif (not conservative and not rm.expr.unresolved and known_scalar and
+          selection == 0 and bases != frozenset(("bp",))):
         mod, extra = 0, b""
-    elif (not conservative and not rm.expr.unresolved and not rm.expr.relocation and
-          _signed8_word(disp)):
-        mod, extra = 1, _word(disp, 1)
+    elif (not conservative and not rm.expr.unresolved and known_scalar and
+          _signed8_word(selection)):
+        mod, extra = 1, _word(selection, 1)
     else:
         mod, extra = 2, _word(disp, 2)
     return bytes(((mod << 6) | (reg << 3) | code,)) + extra

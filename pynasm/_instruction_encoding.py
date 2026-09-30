@@ -111,14 +111,34 @@ class InstructionEncodingMixin:
             if word_displacement and displacement_width == 8:
                 displacement_width = 16
             try:
+                location = Value(self._line_address, relocation=1,
+                                 layout=() if self._section is None else
+                                 ((self._section.name, self._line_index, 1),))
                 expr, coefficients = evaluate_address(
                     f"({leading_address})+({inner})" if leading_address else inner,
-                    self._lookup, self._line_address, self._integer_function)
+                    self._lookup, location, self._integer_function)
             except ExpressionError as exc:
                 raise self._error(str(exc)) from exc
             self._require(all(coefficient == 1 for coefficient in coefficients.values()),
                           "invalid 8086 effective address")
             bases = list(coefficients)
+            selection_displacement = None
+            if self.compatibility == "nasm3" and expr.relocation == -1 and not expr.unresolved:
+                section_terms: dict[str, int] = {}
+                for name, _, coefficient in expr.layout or ():
+                    section_terms[name] = section_terms.get(name, 0) + coefficient
+                section_terms = {name: coefficient for name, coefficient in section_terms.items()
+                                 if coefficient}
+                self._require(self._section is not None and
+                              section_terms == {self._section.name: -1},
+                              "invalid effective address: impossible segment base multiplier")
+                if bases:
+                    # NASM parser.c marks a negative current-section base as
+                    # self-relative. memory_mod() and disp8 use its section
+                    # offset, while a word displacement goes through flat
+                    # relocation. Preserve that distinction, including zero
+                    # displacement and explicit BYTE/WORD, only in nasm3.
+                    selection_displacement = expr.number + self._section.base
             self._require(displacement_width in (None, 8, 16) or
                           (displacement_width == 32 and not bases),
                           "invalid 8086 displacement size")
@@ -131,7 +151,8 @@ class InstructionEncodingMixin:
                            distance_flags=frozenset(distance_flags),
                            displacement_width=displacement_width,
                            direct_byte_form=direct_byte_form,
-                           address_width=address_width)
+                           address_width=address_width,
+                           selection_displacement=selection_displacement)
         if segment: raise self._error("segment override requires memory operand")
         if ":" in text:
             far = _split(text, ":")
@@ -156,7 +177,8 @@ class InstructionEncodingMixin:
             self._wide_displacements.add(site)
         conservative = (self.optimize <= 1 and site in self._wide_displacements and
                         (self.compatibility != "nasm3" or operand.expr.unresolved or
-                         operand.expr.relocation != 0))
+                         (operand.expr.relocation != 0 and
+                          operand.selection_displacement is None)))
         return self._prefix(operand) + bytes((opcode,)) + _modrm(field, operand, width, conservative)
 
     def _require(self, condition: bool, message: str = "invalid operand combination") -> None:

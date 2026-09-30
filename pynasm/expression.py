@@ -247,7 +247,7 @@ def evaluate(source: str, lookup: Callable[[str], Value], location: int | Value 
     return result
 
 
-def evaluate_address(source: str, lookup: Callable[[str], Value], location: int = 0,
+def evaluate_address(source: str, lookup: Callable[[str], Value], location: int | Value = 0,
                      functions: Callable[[str, Value], Value | None] | None = None
                      ) -> tuple[Value, dict[str, int]]:
     """Evaluate a linear 8086 address, retaining register coefficients."""
@@ -276,7 +276,10 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                       "!": int(not (value.number & 0xFFFFFFFFFFFFFFFF))}[token]
             left = (Value(number, value.unresolved, value.symbolic, value.section,
                           value.relocation if token == "+" else
-                          (-value.relocation if token == "-" else 0)),
+                          (-value.relocation if token == "-" else 0),
+                          value.layout if token == "+" else
+                          scale_layout(value.layout, -1) if token in ("-", "~") else
+                          (() if value.layout == () else None), value.forward),
                     {reg: coefficient * (-1 if token == "-" else 1)
                      for reg, coefficient in coeffs.items()})
         elif token == "(":
@@ -285,7 +288,8 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                 raise ExpressionError("missing ')'")
             index += 1
         elif token == "$":
-            left = Value(location, relocation=1), {}
+            left = (location if isinstance(location, Value) else
+                    Value(location, relocation=1)), {}
         elif token == "$$":
             left = lookup("$$"), {}
         elif token[0] in "'\"`":
@@ -356,7 +360,9 @@ def evaluate_address(source: str, lookup: Callable[[str], Value], location: int 
                                   bool((a.number - b.number) & 0x8000000000000000))
             left = (Value(_apply(op, a.number, b.number),
                           a.unresolved or b.unresolved or unknown_comparison,
-                          a.symbolic or b.symbolic, section, relocation), coefficients)
+                          a.symbolic or b.symbolic, section, relocation,
+                          combine_layout(op, a.layout, b.layout, a.number, b.number),
+                          a.forward or b.forward), coefficients)
         return left
 
     result = parse()

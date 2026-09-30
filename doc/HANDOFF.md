@@ -1,13 +1,14 @@
 # Handoff — PR integration review, 2026-09-30
 
-FINISHED: original PR heads #3–#10, #12 and #13 each pass their local full suite
-with this computer's NASM 3.02. Regression sources for #3–#10 independently
-match native NASM. The combined checkout preserves all metadata from three
-merge conflicts and fixes the demonstrated forward-reservation interaction.
-Combined suite: 210 methods, 209 pass, one optional external-corpus skip.
-Exact inputs, source comparisons and logs: doc/evidence/pr_review_20260930_checkpoint.json.gz.
+FINISHED: PR heads #3–#13 are preserved in the integration branch. Ten ready
+heads passed individual suites; test-only #11 had six native mismatches and
+is repaired with general section-relative address selection in nasm3 mode.
+The combined forward-reservation interaction is also repaired. Historical
+profile behavior remains unchanged. Combined suite: 215 methods, 214 pass,
+one optional external-corpus skip. The negative-address fixture independently
+replays 3,288 native outcomes; original #11/scaled controls match native NASM.
+Details and immutable receipts: doc/PR_REVIEW_20260930.md and doc/evidence/.
 
-WIP: #11 remains regression-only and is not yet in this checkout. Investigate
-and repair its based negative-section displacement selection using the native
-reference. Then run combined native integer and whole-program sweeps, final CI,
-and merge. No remote merge has happened. Historical profile behavior is kept.
+WIP: complete native integer and whole-program sweeps, final Windows/Linux CI,
+then merge integration PR #14 and clean up the superseded drafts/branches.
+No remote merge has happened. Do not treat a partial sweep log as a result.

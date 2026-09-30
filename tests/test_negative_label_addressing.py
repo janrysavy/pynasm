@@ -1,8 +1,8 @@
-"""Open NASM3 parity discrepancy; intentionally failing regression-only draft.
+"""Native NASM3 negative-section address compatibility (PR #11, now repaired).
 
-Do not infer that the reference's treatment of a negative section-base term
-is the desired mathematical address. Keep this isolated until that semantic
-choice has been resolved; the direct-address guard is materially different.
+Based displacement selection uses section offsets; direct and word addresses
+retain the absolute expression. This is NASM compatibility, not a claim about
+the desired mathematical address. See doc/PR_REVIEW_20260930.md.
 """
 import unittest
 from pynasm import assemble
