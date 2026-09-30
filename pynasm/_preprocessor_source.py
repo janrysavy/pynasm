@@ -5,6 +5,22 @@ from __future__ import annotations
 from ._assembler_syntax import *
 
 
+# Match complete quoted tokens and consume ordinary %% atomically. Otherwise
+# a valid signed remainder such as "5%%+2" would expose a spurious "%+2".
+_MMACRO_TOKENS = re.compile(
+    r"`(?:[^`\\]|\\.)*`|'[^']*'|\"[^\"]*\"|"
+    r"(?P<macro>%%[\w.$?@~#]+|%[+-]?[0-9]+)|%%|.")
+
+
+def _reject_unexpanded_macro_tokens(source: str) -> None:
+    """Reject parameter/local tokens that were not expanded by preprocessing."""
+    if "%" not in source:
+        return
+    for match in _MMACRO_TOKENS.finditer(source):
+        if match.group('macro') is not None:
+            raise ExpressionError(f"unexpanded macro token {match.group()!r}")
+
+
 class SourceReaderMixin:
     def _read_source(self, source: str, filename: str, definitions: dict[str, str],
                      stack: tuple[str, ...] = (),
@@ -132,6 +148,12 @@ class SourceReaderMixin:
                 raw = self._expand_context_locals(raw)
             self._line = SourceLine(raw, filename, number)
             stripped = _comment(raw).strip()
+            if (self.compatibility == "nasm3" and invocation_frame is None and
+                    all(state[0] for state in active)):
+                try:
+                    _reject_unexpanded_macro_tokens(stripped)
+                except ExpressionError as exc:
+                    raise self._error(str(exc)) from exc
             if stripped.startswith("%") or re.match(r"^#\s+", stripped):
                 stripped = re.sub(r"(?i)^%(if|elif)(?=[0-9+\-~(!])", r"%\1 ", stripped)
                 parts = stripped.split(None, 2)
