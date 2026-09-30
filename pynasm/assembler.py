@@ -207,9 +207,13 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
             section = self._sections[name]
             old = self._previous_sections.get(name)
             estimated_size = old.size if old is not None else section.size
+            # Earlier labels must see requirements discovered later in the
+            # preceding pass. Otherwise a late ALIGN moves bytes but leaves
+            # their already-bound symbols at the old, weaker alignment.
+            alignment = max(section.align, old.align if old is not None else 1)
             if name == ".text":
                 start = (section.start if section.start is not None else
-                         aligned_file_offset(0, section.align))
+                         aligned_file_offset(0, alignment))
             elif section.start is not None:
                 start = section.start
             elif section.follows:
@@ -218,9 +222,9 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 predecessor_old = self._previous_sections.get(section.follows)
                 predecessor_size = predecessor_old.size if predecessor_old is not None else predecessor.size
                 start = aligned_file_offset(predecessor.file_start + predecessor_size,
-                                            section.align)
+                                            alignment)
             else:
-                start = aligned_file_offset(file_end, section.align)
+                start = aligned_file_offset(file_end, alignment)
             section.file_start = start
             if section.vstart is not None:
                 section.base = section.vstart
@@ -229,7 +233,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 self._require(predecessor is not None, f"unknown SECTION in vfollows={section.vfollows}")
                 predecessor_old = self._previous_sections.get(section.vfollows)
                 predecessor_size = predecessor_old.size if predecessor_old is not None else predecessor.size
-                section.base = ((predecessor.base + predecessor_size + section.align - 1) // section.align) * section.align
+                section.base = ((predecessor.base + predecessor_size + alignment - 1) // alignment) * alignment
             else:
                 section.base = self._program_origin + start
             if not section.nobits:
@@ -237,6 +241,23 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         if self._section is not None:
             self._origin = self._section.base
             self._address = self._origin + self._section.size
+
+    def _record_section_attribute(self, section: Section, attribute: str) -> None:
+        # Defaults are not explicit attributes. NASM distinguishes an implicit
+        # alignment from ALIGNB/SECTALIGN even when its numeric value is equal.
+        self._section_attributes.setdefault(section.name, set()).add(attribute)
+        self._section_attribute_lines[section.name] = self._line
+
+    def _validate_section_attributes(self) -> None:
+        if self.compatibility != "nasm3":
+            return
+        real = {"start", "align", "follows"}
+        virtual = {"vstart", "valign", "vfollows"}
+        for name, attributes in self._section_attributes.items():
+            if self._sections[name].nobits and attributes & real and attributes & virtual:
+                line = self._section_attribute_lines[name]
+                raise AssemblyError(f"cannot mix real and virtual attributes in nobits section ({name})",
+                                    line.filename, line.number)
 
     def _select_section(self, arguments: str) -> None:
         parts = arguments.split()
@@ -248,6 +269,10 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         section = self._sections[name]
         for item in parts[1:]:
             lower = item.lower()
+            attribute = lower.split("=", 1)[0]
+            already_aligned = "align" in self._section_attributes.get(name, set())
+            if "=" in lower and attribute in ("start", "align", "follows", "vstart", "valign", "vfollows"):
+                self._record_section_attribute(section, attribute)
             if lower == "nobits": section.nobits = True
             elif lower == "progbits": section.nobits = False
             elif lower.startswith(("align=", "start=", "vstart=")):
@@ -255,7 +280,13 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 key = key.lower()
                 evaluated = self._eval(value)
                 self._require(not evaluated.unresolved, f"SECTION {key} needs a known value")
-                setattr(section, key, evaluated.number)
+                value = evaluated.number
+                if key == "align":
+                    self._require(value > 0 and value & (value - 1) == 0,
+                                  "SECTION alignment must be a power of two")
+                    if already_aligned:
+                        value = max(section.align, value)
+                setattr(section, key, value)
             elif lower.startswith(("follows=", "vfollows=")):
                 key, value = item.split("=", 1)
                 setattr(section, key.lower(), value)
@@ -274,6 +305,8 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self._deferred_branch_relax = False
         self._previous_line_sizes = previous_sizes
         self._line_positions: list[tuple[int, str | None]] = []
+        self._section_attributes: dict[str, set[str]] = {}
+        self._section_attribute_lines: dict[str, SourceLine] = {}
         self._sectalign_auto = True
         self._dollarhex = True
         self._float_rounding = "near"
@@ -426,6 +459,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 self._section.size += len(data)
             self._address += len(data)
             sizes.append(len(data))
+        self._validate_section_attributes()
         output = bytearray()
         for name in sorted(self._section_names(), key=lambda n: (self._sections[n].file_start, n != ".text")):
             section = self._sections[name]
@@ -576,9 +610,9 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
             output, sizes = self._run_pass(previous_sizes)
             current_line_positions = self._line_positions
             self._last_sizes = sizes
-            section_state = [(n, s.size, s.file_start, s.base, s.nobits, s.follows, s.vfollows)
+            section_state = [(n, s.size, s.file_start, s.base, s.nobits, s.follows, s.vfollows, s.align)
                              for n, s in self._sections.items()]
-            old_section_state = [(n, s.size, s.file_start, s.base, s.nobits, s.follows, s.vfollows)
+            old_section_state = [(n, s.size, s.file_start, s.base, s.nobits, s.follows, s.vfollows, s.align)
                                  for n, s in previous_sections.items()]
             if (pass_number > 0 and not self._deferred_branch_relax and
                     previous_origin == self._program_origin and sizes == previous_sizes and
