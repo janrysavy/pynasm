@@ -1,22 +1,15 @@
-# Handoff — expression recovery integrated, 2026-09-30
+# Handoff — vector-expression integration, 2026-09-30
 
-FINISHED: PR #15 merged as 434ada5 after all four final-head Windows/Linux
-checks passed on 9c19b14. Unknown denominator deferral, scalar operator
-validation in both parsers and scalar-EQU Jcc sizing are integrated. Historical
-profile behavior retains its defaults. Both CPU aliases replay 1,260 native
-outcomes, including 324 rejection controls. Native suite: 216 pass/one optional
-skip; portable suite: 196 pass/21 optional skips. Qualifier matrix 1,944 and
-branch-layout programs 300 agree with complete native output.
+FINISHED locally: PRs #16–#18 preserved together, all original heads are
+ancestors. Combined suite: 224 methods, 223 passed/one optional corpus skip,
+with native NASM 3.02 enabled. Fresh oracle replays: 93 ternary, 1,986 vector
+comparison and 558 provenance/ABSOLUTE outcomes. Details and limits:
+doc/PRO_VECTOR_REVIEW_20260930.md and its linked receipt.
 
-Source/provenance and limits: doc/PRO_RUN_20260930.md; logs/hashes are in
-its linked evidence. Integration/check/cleanup receipt:
-doc/evidence/pro_expression_integration_20260930.json.gz.
-The original PRO final report's claimed PRs #17–#19 never existed here.
-Its temporary packaging branch and unused artifact are deleted. No open PR
-remains; master is the only remote branch. No new Pascal routine was recovered.
-
-The prior #3–#13 integration and broader native sweeps are preserved in
-PR #14 and doc/PR_REVIEW_20260930.md. Deferred template families/reference
-hangs remain outside parity claims. Unspaced %% macro-token rejection is an
-explicit remaining preprocessing gap. Parent pin integration/validation is
-tracked in the parent HANDOFF; do not assume that step is complete here.
+FINISHED: portable suite 200 pass/24 explicit optional skips; combined-head
+Windows/Linux CI passed on 069e70f.
+WIP: final documentation-head CI before merge.
+Then close superseded PRs, remove the input-snapshot/review branches and
+update the parent's assembler pin. Parent DrawQuitField is a separate WIP
+translation; its compiler/parity evidence is not established by this suite.
+Previous #3–#15 integrations remain in their linked reports/history.
