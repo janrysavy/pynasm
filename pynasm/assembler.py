@@ -531,6 +531,12 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 instruction = text[position + 1:].strip()
             if count_text is not None:
                 count = self._eval(count_text)
+                # A numeric offset is not a repetition count until every
+                # section-base term cancels. Cross-section differences can
+                # have total relocation zero while still being non-scalar.
+                self._require(self.compatibility != "nasm3" or count.unresolved or
+                              (count.relocation == 0 and not _bases(count)),
+                              "TIMES count must be scalar")
                 if count.unresolved or count.number < 0:
                     self._invalid_times = True
                     count = Value(0)
