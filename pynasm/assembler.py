@@ -8,7 +8,7 @@ from ._preprocessor_directives import PreprocessorDirectiveMixin
 from ._preprocessor_source import SourceReaderMixin
 from ._instruction_encoding import InstructionEncodingMixin
 from .listing import ListingLine
-from ._layout import Layout
+from ._layout import Layout, combine_layout
 
 
 class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMixin, InstructionEncodingMixin):
@@ -289,6 +289,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self._previous_line_sizes = previous_sizes
         self._line_positions: list[tuple[int, str | None]] = []
         self._line_alignments: dict[int, int] = {}
+        self._line_size_layouts: dict[int, Layout] = {}
         self._sectalign_auto = True
         self._dollarhex = True
         self._float_rounding = "near"
@@ -422,9 +423,19 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     self._invalid_times = True
                     count = Value(0)
                 encoded = bytearray()
+                repeated_layout = ()
+                first_shape = None
+                uniform_shape = True
                 self._in_times = True
                 for _ in range(count.number):
                     chunk = self._instruction(instruction)
+                    shape = len(chunk), self._size_layout
+                    if first_shape is None:
+                        first_shape = shape
+                    elif shape != first_shape:
+                        uniform_shape = False
+                    repeated_layout = combine_layout("+", repeated_layout,
+                                                     self._size_layout, 0, 0)
                     encoded.extend(chunk)
                     if self._section is None:
                         self._require(not chunk or re.match(r"(?i)^(?:resb|resw|resd|resq|rest|reso|resy|resz|alignb)\b",
@@ -436,9 +447,17 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     self._address += len(chunk)
                 self._in_times = False
                 data = bytes(encoded)
+                if count.layout != ():
+                    repeated_layout = (combine_layout("*", count.layout, first_shape[1],
+                                                      count.number, first_shape[0])
+                                       if uniform_shape and first_shape else None)
+                if repeated_layout != ():
+                    self._line_size_layouts[line_index] = repeated_layout
                 sizes.append(len(data))
                 continue
             data = self._instruction(text)
+            if self._size_layout != ():
+                self._line_size_layouts[line_index] = self._size_layout
             if self._section is None:
                 self._require(not data or re.match(r"(?i)^(?:resb|resw|resd|resq|rest|reso|resy|resz|alignb)\b",
                                                    text) is not None,
@@ -588,6 +607,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         older_sizes: list[int] = []
         self._previous_line_positions = []
         self._previous_line_alignments: dict[int, int] = {}
+        self._previous_line_size_layouts: dict[int, Layout] = {}
         # A chain of boundary branches can relax one instruction per pass:
         # each newly widened forward branch shifts the following symbols.
         # Allow the pass budget to scale with source length while retaining a
@@ -611,6 +631,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     self.symbols == previous_symbols and
                     self._symbol_relocations == previous_relocations and
                     self._symbol_layouts == self._previous_symbol_layouts and
+                    self._line_size_layouts == self._previous_line_size_layouts and
                     section_state == old_section_state):
                 if self._missing: raise self._error("undefined symbol: " + sorted(self._missing)[0])
                 if self._invalid_times: raise self._error("TIMES needs a known nonnegative count")
@@ -638,6 +659,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
             self._previous_sections = self._sections
             self._previous_line_positions = current_line_positions
             self._previous_line_alignments = self._line_alignments
+            self._previous_line_size_layouts = self._line_size_layouts
             older_sizes = previous_sizes
             previous_sizes = sizes
         raise self._error("assembly did not converge")
