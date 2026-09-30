@@ -1,0 +1,39 @@
+name: Pinned NASM roadmap validation
+on:
+  push:
+    branches: [review/nasm-roadmap-template-ledger]
+permissions:
+  contents: read
+jobs:
+  oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v4
+        with:
+          repository: netwide-assembler/nasm
+          ref: 4a56d66ed9626d5a3ded5414c9d8b7f1a48ce065
+          path: _nasm-oracle
+          persist-credentials: false
+      - name: Build pinned NASM 3.02 and expanded instruction table
+        working-directory: _nasm-oracle
+        run: |
+          sh autogen.sh
+          ./configure LDFLAGS=-static
+          make -j2 nasm
+          ./nasm -v
+      - name: Test current baseline and collect source audit inputs
+        run: |
+          mkdir -p validation
+          tar -C _nasm-oracle -czf validation/nasm-source.tar.gz --exclude=.git .
+          NASM="$PWD/_nasm-oracle/nasm" python -m unittest discover -s tests -v > validation/tests.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nasm-roadmap-inputs
+          path: validation/
+          retention-days: 7
