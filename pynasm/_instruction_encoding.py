@@ -738,6 +738,7 @@ class InstructionEncodingMixin:
         if mnemonic == "absolute":
             value = self._eval(arguments)
             self._require(not value.unresolved, "ABSOLUTE needs a known address")
+            self._absolute_context = value
             self._section = None
             self._origin = 0
             self._address = value.number

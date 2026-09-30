@@ -1,16 +1,14 @@
-# Handoff - vector-expression integration complete, 2026-09-30
+# Handoff - assembly-aware preprocessing, 2026-09-30
 
-FINISHED: PR20 merged as fc6cffe after four final-head Windows/Linux checks
-passed on 83de621. All original PR16-18 heads are ancestors of master.
-PR16/17 are merged; stacked PR18 is closed as integrated. Review and transfer
-branches can be removed without losing production work.
+FINISHED locally: issue #19 reproduced against NASM 3.02 and fixed with
+per-pass streaming source expansion and actual location/relocation metadata.
+294 new independent comparisons pass (234 complete binaries, 60 rejections).
+Full native suite: 228 pass/one skip; portable: 204 pass/25 explicit skips.
+Evidence and semantics: doc/PREPROCESSOR_LOCATION.md and linked receipt.
 
-Combined native NASM 3.02 suite: 224 methods, 223 passed/one optional corpus
-skip. Fresh oracle replays: 93 ternary, 1,986 vector-comparison and 558
-provenance/ABSOLUTE outcomes. Portable: 200 pass/24 explicit optional skips.
-Details, full logs/hashes and limits: doc/PRO_VECTOR_REVIEW_20260930.md and
-its linked receipt. Previous PR3-15 integrations remain in history.
+WIP publication: push this slice and inspect final Windows/Linux CI before
+merging. Other open PRO PRs must be reviewed separately; no claim that their
+changes are incorporated yet. Parent pin still refers to the prior master.
 
-Parent DrawQuitField is a separate translation. Its fresh TP6 batch is
-checkpointed there; parent full-EXE parity and final pin integration follow.
-Do not treat assembler tests as evidence for game mechanics or Pascal parity.
+Earlier PR16-18 work was integrated through PR20. These assembler checks
+are not Pascal/game-mechanics proof; parent parity gates follow pin integration.
