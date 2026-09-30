@@ -499,6 +499,8 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 if count.unresolved or count.number < 0:
                     self._invalid_times = True
                     count = Value(0)
+                if self.compatibility == "nasm3" and count.number == 0:
+                    self._instruction(instruction, emit=False)
                 encoded = bytearray()
                 repeated_layout = ()
                 first_shape = None
