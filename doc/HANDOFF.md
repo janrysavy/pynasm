@@ -1,16 +1,16 @@
-# Handoff - vector-expression integration complete, 2026-09-30
+# Handoff - location and count fixes validated, 2026-09-30
 
-FINISHED: PR20 merged as fc6cffe after four final-head Windows/Linux checks
-passed on 83de621. All original PR16-18 heads are ancestors of master.
-PR16/17 are merged; stacked PR18 is closed as integrated. Review and transfer
-branches can be removed without losing production work.
+FINISHED locally: issue #19 reproduced and fixed through assembly-aware
+preprocessing. 294 captured NASM comparisons pass. PRO PR21-23 are integrated
+into this branch with their original commit history; 20 combined focused
+methods and the 244-method native suite pass (one optional corpus skip).
+The complete DOSCTRL worker matches native NASM, including its historical
+3,091-byte hash. Evidence: doc/PREPROCESSOR_LOCATION.md and linked receipt.
 
-Combined native NASM 3.02 suite: 224 methods, 223 passed/one optional corpus
-skip. Fresh oracle replays: 93 ternary, 1,986 vector-comparison and 558
-provenance/ABSOLUTE outcomes. Portable: 200 pass/24 explicit optional skips.
-Details, full logs/hashes and limits: doc/PRO_VECTOR_REVIEW_20260930.md and
-its linked receipt. Previous PR3-15 integrations remain in history.
+WIP: PR24 awaits final Windows/Linux CI on this documentation head, then
+merge and remove integrated feature/transfer branches. Parent pin upgrade
+and full parent parity/static validation remain WIP. Do not claim new Pascal
+translation or gameplay evidence from these assembler-only checks.
 
-Parent DrawQuitField is a separate translation. Its fresh TP6 batch is
-checkpointed there; parent full-EXE parity and final pin integration follow.
-Do not treat assembler tests as evidence for game mechanics or Pascal parity.
+Earlier PR16-18 were integrated through PR20. Use one bounded game-owned
+ASM-to-Pascal routine for the next PRO run after parent synchronization.

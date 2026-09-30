@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from ._assembler_syntax import *
 from ._layout import combine_layout, scale_layout
+from .expression import _bases
+from .floatdata import _literal_value
 
 
 class InstructionEncodingMixin:
-    def _operand(self, text: str, forced_address_width: int | None = None) -> Operand:
+    def _operand(self, text: str, forced_address_width: int | None = None, *,
+                 check_encoding: bool = True) -> Operand:
         text = text.strip()
         masm_ptr = "__?masm_ptr?__" in text.lower()
         if masm_ptr:
@@ -40,16 +43,16 @@ class InstructionEncodingMixin:
         if not text: raise self._error("missing operand")
         lower = text.lower()
         if not masm_ptr and lower in REG8:
-            if width and width != 8: raise self._error("register size conflict")
+            if check_encoding and width and width != 8: raise self._error("register size conflict")
             return Operand("reg", 8, REG8[lower], qualifier=qualifier, strict=strict,
                            distance_flags=frozenset(distance_flags))
         if not masm_ptr and lower in REG16:
-            if width and width != 16: raise self._error("register size conflict")
+            if check_encoding and width and width != 16: raise self._error("register size conflict")
             return Operand("reg", 16, REG16[lower], qualifier=qualifier, strict=strict,
                            distance_flags=frozenset(distance_flags))
         if not masm_ptr and lower in ("ecx", "rcx"):
             register_width = 32 if lower == "ecx" else 64
-            if width and width != register_width:
+            if check_encoding and width and width != register_width:
                 raise self._error("register size conflict")
             return Operand("shift_count", register_width, 1,
                            qualifier=qualifier, strict=strict,
@@ -57,6 +60,11 @@ class InstructionEncodingMixin:
         if not masm_ptr and lower in SEGREG:
             return Operand("seg", 16, SEGREG[lower], qualifier=qualifier, strict=strict,
                            distance_flags=frozenset(distance_flags))
+        if (not check_encoding and not masm_ptr and
+                re.fullmatch(r"(?:e[abcd]x|e[bs]p|e[sd]i|r(?:[abcd]x|[bs]p|[sd]i|[89]|1[0-5])|[fg]s)", lower)):
+            # A zero TIMES body is parsed but never encoded. Recognizing these
+            # tokens here does not enable their use in an emitted instruction.
+            return Operand("reg", width)
         segment = None
         match = re.match(r"(?i)^(es|cs|ss|ds)\s*:\s*(.*)$", text)
         if match:
@@ -120,11 +128,14 @@ class InstructionEncodingMixin:
                     strict_scalars=self.compatibility == 'nasm3')
             except ExpressionError as exc:
                 raise self._error(str(exc)) from exc
-            self._require(all(coefficient == 1 for coefficient in coefficients.values()),
+            self._require(not check_encoding or
+                          all(coefficient == 1 for coefficient in coefficients.values()),
                           "invalid 8086 effective address")
+            self._require(check_encoding or len(coefficients) <= 2,
+                          "invalid effective address: too many registers")
             bases = list(coefficients)
             selection_displacement = None
-            if self.compatibility == "nasm3" and expr.relocation == -1 and not expr.unresolved:
+            if check_encoding and self.compatibility == "nasm3" and expr.relocation == -1 and not expr.unresolved:
                 section_terms: dict[str, int] = {}
                 for name, _, coefficient in expr.layout or ():
                     section_terms[name] = section_terms.get(name, 0) + coefficient
@@ -140,12 +151,12 @@ class InstructionEncodingMixin:
                     # relocation. Preserve that distinction, including zero
                     # displacement and explicit BYTE/WORD, only in nasm3.
                     selection_displacement = expr.number + self._section.base
-            self._require(displacement_width in (None, 8, 16) or
+            self._require(not check_encoding or displacement_width in (None, 8, 16) or
                           (displacement_width == 32 and not bases),
                           "invalid 8086 displacement size")
             self._require(address_width is None or displacement_width in (None, 8, address_width),
                           "conflicting address and displacement sizes")
-            self._require(address_width != 32 or not bases,
+            self._require(not check_encoding or address_width != 32 or not bases,
                           "invalid 8086 effective address")
             return Operand("mem", width, expr=expr, segment=segment, base=tuple(bases),
                            qualifier=qualifier, strict=strict,
@@ -545,7 +556,8 @@ class InstructionEncodingMixin:
             return bytes((0xE6 if src.width == 8 else 0xE7,)) + _word(dst.expr.number, 1)
         raise self._error("invalid operand combination")
 
-    def _data(self, directive: str, arguments: str, width: int | None = None) -> bytes:
+    def _data(self, directive: str, arguments: str, width: int | None = None, *,
+              emit: bool = True) -> bytes:
         if width is None:
             width = {"db": 1, "dw": 2, "dd": 4, "dq": 8, "dt": 10, "do": 16,
                      "dy": 32, "dz": 64,
@@ -566,37 +578,56 @@ class InstructionEncodingMixin:
                                   "zword": 64}[size.group(1).lower()]
                     arg = size.group(2).strip()
                 if arg.startswith("%(") and arg.endswith(")"):
-                    output.extend(self._data(directive, arg[2:-1], item_width))
+                    output.extend(self._data(directive, arg[2:-1], item_width, emit=emit))
                     size_layout = combine_layout("+", size_layout, self._size_layout, 0, 0)
                     continue
                 if size and arg.startswith("(") and arg.endswith(")"):
-                    output.extend(self._data(directive, arg[1:-1], item_width))
+                    output.extend(self._data(directive, arg[1:-1], item_width, emit=emit))
                     size_layout = combine_layout("+", size_layout, self._size_layout, 0, 0)
                     continue
             if arg == "?":
-                output.extend(bytes(item_width))
+                if emit:
+                    output.extend(bytes(item_width))
                 continue
             match = re.match(r"(?is)^(.*?)\s+dup\s*\((.*)\)$", arg)
             if match:
                 amount = self._eval(match.group(1))
                 self._require(not amount.unresolved and amount.number >= 0, "invalid dup count")
                 if self.compatibility == "nasm3":
+                    self._require(amount.relocation == 0 and not _bases(amount),
+                                  "DUP count must be scalar")
                     final_item = _split(match.group(2))[-1]
                     self._require(not re.match(r"(?is)^.+?\s+dup\s*\(.*\)$", final_item),
                                   "nested DUP cannot end a data list in this NASM profile")
-                element = self._data(directive, match.group(2), item_width)
+                element = self._data(directive, match.group(2), item_width, emit=emit)
                 repeated = combine_layout("*", amount.layout, self._size_layout,
                                           amount.number, len(element))
                 size_layout = combine_layout("+", size_layout, repeated, 0, 0)
-                output.extend(element * amount.number)
+                if emit:
+                    output.extend(element * amount.number)
                 continue
             if arg[0] in "'\"`" and arg[-1:] == arg[0]:
                 content = string_bytes(arg)
+                if not emit:
+                    continue
                 if item_width == 1: output.extend(content)
                 else:
                     output.extend(content)
                     output.extend(bytes((-len(content)) % item_width))
             else:
+                if not emit:
+                    # NASM parses data expressions even for TIMES 0, but does
+                    # not enforce output width or allocate the repeated data.
+                    literal = arg.lstrip("+-").strip()
+                    try:
+                        floating = _literal_value(literal)
+                    except ValueError as exc:
+                        raise self._error(str(exc)) from exc
+                    if (floating is None and literal.lower() not in
+                            ("__infinity__", "__nan__", "__qnan__", "__snan__") and
+                            not (directive == "dt" and encode_bcd(arg) is not None)):
+                        self._eval(arg)
+                    continue
                 if directive == "dt" and item_width == 10:
                     packed_bcd = encode_bcd(arg)
                     if packed_bcd is not None:
@@ -666,7 +697,7 @@ class InstructionEncodingMixin:
                 return bytes((opcode, base + right))
         raise self._error("invalid FPU operand combination")
 
-    def _instruction(self, text: str) -> bytes:
+    def _instruction(self, text: str, *, emit: bool = True) -> bytes:
         self._size_layout = ()
         text = text.strip()
         bracketed = text.startswith("[") and text.endswith("]")
@@ -675,6 +706,20 @@ class InstructionEncodingMixin:
         match = re.match(r"(?is)^([a-z_][\w]*)\b\s*(.*)$", text.strip())
         if not match: raise self._error("expected instruction or directive")
         mnemonic, arguments = match.group(1).lower(), match.group(2).strip()
+        if not emit and mnemonic == "times":
+            nested = re.match(r"(?is)^(.+?)\s+([a-z]+)\b(.*)$", arguments)
+            self._require(nested is not None, "expected TIMES count and body")
+            self._eval(nested.group(1))
+            return self._instruction(nested.group(2) + nested.group(3), emit=False)
+        if not emit:
+            # Parse-only is reserved for a zero TIMES body. It must not execute
+            # directives that change origin, sections, CPU mode or assembler state.
+            nonrepeatable = (_NASM_DIRECTIVES - {
+                "db", "dw", "dd", "dq", "dt", "do", "dy", "dz", "resb", "resw",
+                "resd", "resq", "rest", "reso", "resy", "resz", "incbin", "equ"
+            }) | {"align", "alignb", "alignmode", "use16"}
+            self._require(mnemonic not in nonrepeatable,
+                          "directive cannot be used as a TIMES body")
         if mnemonic == "dollarhex":
             self._require(bracketed, "DOLLARHEX requires brackets")
             self._set_dollarhex(arguments)
@@ -738,6 +783,7 @@ class InstructionEncodingMixin:
         if mnemonic == "absolute":
             value = self._eval(arguments)
             self._require(not value.unresolved, "ABSOLUTE needs a known address")
+            self._absolute_context = value
             self._section = None
             self._origin = 0
             self._address = value.number
@@ -767,9 +813,11 @@ class InstructionEncodingMixin:
             return b""
         if mnemonic in ("db", "dw", "dd", "dq", "dt", "do", "dy", "dz", "bf16"):
             if mnemonic == "bf16": self._require(self._use_fp, "BF16 requires %use fp")
-            return self._data(mnemonic, arguments)
+            return self._data(mnemonic, arguments, emit=emit)
         if mnemonic in ("resb", "resw", "resd", "resq", "rest", "reso", "resy", "resz"):
             count = self._eval(arguments)
+            if not emit:
+                return b""
             # NASM3 permits forward reservation counts. Use their provisional
             # size until the normal symbol/layout convergence checks finish;
             # unresolved names and self-growing layouts still fail there.
@@ -777,7 +825,8 @@ class InstructionEncodingMixin:
                           (count.number >= 0 or self.compatibility == "nasm3"),
                           "invalid reserve count")
             self._require(self.compatibility != "nasm3" or count.unresolved or
-                          count.relocation == 0, "reserve count must be scalar")
+                          (count.relocation == 0 and not _bases(count)),
+                          "reserve count must be scalar")
             unit = {"resb": 1, "resw": 2, "resd": 4, "resq": 8,
                     "rest": 10, "reso": 16, "resy": 32, "resz": 64}[mnemonic]
             self._size_layout = scale_layout(count.layout, unit) if count.number >= 0 else None
@@ -858,6 +907,10 @@ class InstructionEncodingMixin:
             self._require(1 <= len(parts) <= 3 and len(parts[0]) >= 2 and
                           parts[0][0] in "'\"`" and parts[0][-1] == parts[0][0],
                           "INCBIN needs a quoted path and at most two ranges")
+            if not emit:
+                for part in parts[1:]:
+                    self._eval(part)
+                return b""
             filename = string_bytes(parts[0]).decode("latin-1").replace("\\", "/")
             if self.compatibility == "nasm3":
                 candidates = [Path(filename)] + [p / filename for p in self.include_paths]
@@ -959,10 +1012,20 @@ class InstructionEncodingMixin:
             ordered += slot_bytes(3)
             return ordered + core
         if mnemonic in FPU_MNEMONICS:
+            if not emit:
+                for item in _split(arguments) if arguments else []:
+                    if self._fpu_register_index(item) is None:
+                        self._operand(item, explicit_address_width, check_encoding=False)
+                return b""
             return with_prefixes(self._encode_fpu(mnemonic, arguments, 1 in prefix_slots,
                                                    explicit_address_width))
-        operands = [self._operand(item, explicit_address_width)
-                    for item in _split(arguments)] if arguments else []
+        items = _split(arguments) if arguments else []
+        if not emit and items and items[-1] == "":
+            items.pop()
+        operands = [self._operand(item, explicit_address_width, check_encoding=emit)
+                    for item in items]
+        if not emit:
+            return b""
         self._require(1 not in prefix_slots or all(op.segment is None for op in operands),
                       "instruction has conflicting segment overrides")
         if (self.compatibility == "nasm3" and explicit_address_width == 32 and

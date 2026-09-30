@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from ._assembler_syntax import *
+from collections.abc import Iterator
 
 
 class SourceReaderMixin:
     def _read_source(self, source: str, filename: str, definitions: dict[str, str],
                      stack: tuple[str, ...] = (),
-                     macros: dict[str, list[MacroDefinition]] | None = None) -> list[SourceLine]:
+                     macros: dict[str, list[MacroDefinition]] | None = None) -> Iterator[SourceLine]:
         if filename in stack: raise AssemblyError("recursive %include", filename)
         source_filename = filename
         stack += (filename,)
@@ -432,6 +433,8 @@ class SourceReaderMixin:
                         definitions[name] = value
                 elif enabled and directive == "%use":
                     self._load_macro_package(parts, definitions, macros, lines, filename, number)
+                    yield from lines
+                    lines.clear()
                 elif enabled and directive in ("%error", "%fatal", "%warning", "%note"):
                     message = self._expand_define(" ".join(parts[1:]), definitions).strip()
                     if len(message) >= 2 and message[0] == message[-1] and message[0] in "'\"`":
@@ -440,7 +443,7 @@ class SourceReaderMixin:
                     if directive in ("%error", "%fatal"):
                         raise self._error(message)
                     if directive == "%note" or self._warning_user_enabled:
-                        warnings.warn(f"{filename}:{number}: {message}", stacklevel=2)
+                        self._preprocessor_warning(filename, number, message)
                 elif enabled and directive == "%null":
                     pass
                 elif enabled and directive == "%pragma":
@@ -564,7 +567,7 @@ class SourceReaderMixin:
                     canonical_path = path.resolve()
                     if directive == "%include" or canonical_path not in self._included_paths:
                         self._included_paths.add(canonical_path)
-                        lines.extend(self._read_source(path.read_text(encoding="latin-1"), str(canonical_path), definitions, stack, macros))
+                        yield from self._read_source(path.read_text(encoding="latin-1"), str(canonical_path), definitions, stack, macros)
                 elif directive in ("%endmacro", "%endm"):
                     raise self._error(f"{directive} without %macro")
                 elif directive == "%endrep":
@@ -596,7 +599,7 @@ class SourceReaderMixin:
                         if self._warning_stack:
                             self._warning_user_enabled = self._warning_stack.pop()
                         else:
-                            warnings.warn(f"{filename}:{number}: warning stack empty", stacklevel=2)
+                            self._preprocessor_warning(filename, number, "warning stack empty")
                             self._warning_user_enabled = True
                     elif setting in ("-user", "+user", "*user"):
                         self._warning_user_enabled = setting != "-user"
@@ -655,8 +658,8 @@ class SourceReaderMixin:
                                 reported_count = 0
                     if macro is None and not arguments:
                         if not invocation.group(2).strip():
-                            lines.append(SourceLine(" ".join(leading_labels + [f"{key}:"]),
-                                                    filename, number))
+                            yield SourceLine(" ".join(leading_labels + [f"{key}:"]),
+                                                    filename, number)
                             continue
                     self._require(macro is not None, "wrong macro argument count")
                     if macro.greedy and len(arguments) > macro.maximum:
@@ -678,7 +681,7 @@ class SourceReaderMixin:
                     consumes_label = any(re.search(r"%00(?![0-9])", body_line)
                                          for body_line in macro.body)
                     if leading_labels and not consumes_label:
-                        lines.append(SourceLine(" ".join(leading_labels), filename, number))
+                        yield SourceLine(" ".join(leading_labels), filename, number)
                     raw_lines[index:index] = [
                         (physical_number, body_line, frame,
                          macro.locations[at] if macro.locations is not None else None)
@@ -690,43 +693,43 @@ class SourceReaderMixin:
                             standard not in self._disabled_standard_macros):
                         arguments = _split(invocation.group(2)) if invocation.group(2).strip() else []
                         if leading_labels:
-                            lines.append(SourceLine(" ".join(leading_labels), filename, number))
+                            yield SourceLine(" ".join(leading_labels), filename, number)
                         if standard == "struc":
                             self._require(1 <= len(arguments) <= 2, "STRUC needs a name")
                             name = arguments[0]
                             self._structure_definitions.append(name)
-                            lines.append(SourceLine(f"[absolute {arguments[1] if len(arguments) == 2 else '0'}]",
-                                                    filename, number))
-                            lines.append(SourceLine(f"{name}:", filename, number))
+                            yield SourceLine(f"[absolute {arguments[1] if len(arguments) == 2 else '0'}]",
+                                                    filename, number)
+                            yield SourceLine(f"{name}:", filename, number)
                         elif standard == "endstruc":
                             self._require(not arguments and bool(self._structure_definitions),
                                           "ENDSTRUC without STRUC")
                             name = self._structure_definitions.pop()
-                            lines.append(SourceLine(f"{name}_size equ ($-{name})", filename, number))
-                            lines.append(SourceLine(definitions.get("__?SECT?__") or "[section .text]",
-                                                    filename, number))
+                            yield SourceLine(f"{name}_size equ ($-{name})", filename, number)
+                            yield SourceLine(definitions.get("__?SECT?__") or "[section .text]",
+                                                    filename, number)
                         elif standard == "istruc":
                             self._require(len(arguments) == 1, "ISTRUC needs a structure name")
                             self._structure_serial += 1
                             start = f"..@struct{self._structure_serial}"
                             self._structure_instances.append((arguments[0], start))
-                            lines.append(SourceLine(f"{start}:", filename, number))
+                            yield SourceLine(f"{start}:", filename, number)
                         elif standard == "at":
                             self._require(bool(arguments) and bool(self._structure_instances),
                                           "AT requires ISTRUC")
                             name, start = self._structure_instances[-1]
                             member = arguments[0]
                             target = name + member if member.startswith(".") else member
-                            lines.append(SourceLine(f"times ({target}-{name})-($-{start}) db 0",
-                                                    filename, number))
+                            yield SourceLine(f"times ({target}-{name})-($-{start}) db 0",
+                                                    filename, number)
                             if len(arguments) > 1:
-                                lines.append(SourceLine(",".join(arguments[1:]), filename, number))
+                                yield SourceLine(",".join(arguments[1:]), filename, number)
                         else:
                             self._require(not arguments and bool(self._structure_instances),
                                           "IEND without ISTRUC")
                             name, start = self._structure_instances.pop()
-                            lines.append(SourceLine(f"times {name}_size-($-{start}) db 0",
-                                                    filename, number))
+                            yield SourceLine(f"times {name}_size-($-{start}) db 0",
+                                                    filename, number)
                         continue
                     align_mode = re.match(r"(?i)^alignmode\s+(.+)$", rest)
                     if (align_mode and "smartalign" in self._loaded_packages and
@@ -752,7 +755,7 @@ class SourceReaderMixin:
                     if section_alignment:
                         definitions["__?SECTALIGN_ALIGN_UPDATES_SECTION?__"] = (
                             "1" if section_alignment.group(1).lower() == "on" else "0")
-                    lines.append(SourceLine(expanded, filename, number))
+                    yield SourceLine(expanded, filename, number)
                     candidate = _comment(expanded).strip()
                     label = re.match(r"^([A-Za-z_.$?@][\w.$?@~#]*)\s*:\s*(.*)$", candidate)
                     if label and not self._pp_code_seen:
@@ -772,4 +775,4 @@ class SourceReaderMixin:
                           not re.match(r"(?i)^(?:bits|cpu|use16|section|segment|global)\b", remaining)):
                         self._pp_code_seen = True
         if active: raise AssemblyError("unterminated %if", filename)
-        return lines
+        return

@@ -191,6 +191,8 @@ def _literal_value(token: str) -> Fraction | object | None:
         if not digits or any(int(digit, 16) >= base for digit in digits):
             raise ValueError("invalid floating-point constant")
         numerator = int(digits, base)
+        if not numerator:
+            return Fraction(0)
         power = int(exponent or 0)
         if numerator:
             bits_per_digit = {2: 1, 8: 3, 16: 4}[base]
@@ -210,6 +212,8 @@ def _literal_value(token: str) -> Fraction | object | None:
     digits = whole + (fractional or "")
     power = int(exponent or 0) - len(fractional or "")
     significant = digits.lstrip("0")
+    if not significant:
+        return Fraction(0)
     if significant:
         decimal_order = len(significant) - 1 + power
         if decimal_order > 6000: return _OVERFLOW

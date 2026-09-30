@@ -75,6 +75,12 @@ suppressed preprocessor lines, or symbolic relocation brackets. Consumers of
 NASM's event/depth columns must not substitute it without adapting their parser.
 OMF object output remains unsupported.
 
+## Location-sensitive preprocessing
+
+The `nasm3` profile evaluates preprocessor expressions during each assembly pass,
+using actual positions and relocation metadata. See the [tested semantics and
+oracle fixtures](doc/PREPROCESSOR_LOCATION.md).
+
 ## Tests and progress
 
 Run the bundled tests with:
