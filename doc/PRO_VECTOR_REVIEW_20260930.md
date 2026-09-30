@@ -14,5 +14,6 @@ compare symbolic vectors and reject non-scalar ternary conditions. EQU
 self-relative handling and speculative ABSOLUTE location evaluation now
 follow the pinned reference. These are assembler results, not evidence of
 new Pascal translation or runtime behavior. Final Windows/Linux integration
-CI remains WIP; portable-suite completion follows. The one-off input
+CI passed on 069e70f. Portable suite: 200 passed, 24 explicit optional
+skips. Final documentation-head CI and merge still follow. The one-off input
 packaging branch is not included in the integration.

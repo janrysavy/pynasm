@@ -6,7 +6,9 @@ with native NASM 3.02 enabled. Fresh oracle replays: 93 ternary, 1,986 vector
 comparison and 558 provenance/ABSOLUTE outcomes. Details and limits:
 doc/PRO_VECTOR_REVIEW_20260930.md and its linked receipt.
 
-WIP: portable suite and final Windows/Linux integration CI before merge.
+FINISHED: portable suite 200 pass/24 explicit optional skips; combined-head
+Windows/Linux CI passed on 069e70f.
+WIP: final documentation-head CI before merge.
 Then close superseded PRs, remove the input-snapshot/review branches and
 update the parent's assembler pin. Parent DrawQuitField is a separate WIP
 translation; its compiler/parity evidence is not established by this suite.
