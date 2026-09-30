@@ -1,0 +1,223 @@
+{
+  "schema": 1,
+  "nasm_commit": "4a56d66ed9626d5a3ded5414c9d8b7f1a48ce065",
+  "mode": "portable",
+  "cases": 7852,
+  "source_sha256": "6bd699906717c8d1f0d0cc547297f4546f6fe51fcdf8f8fd8a70927a30a8467d",
+  "goldens": {
+    "0": {
+      "file": "integer_boundaries.O0.bin",
+      "size": 28567,
+      "sha256": "daea910e36734883847fdddc27b8a90f06af5d88ea323f00c16a59afecc8ceb6"
+    },
+    "1": {
+      "file": "integer_boundaries.O1.bin",
+      "size": 28337,
+      "sha256": "9361725a9cccca6bc6d71d0dafb0684c2030986f295aa4db6322795cf3859fef"
+    },
+    "9": {
+      "file": "integer_boundaries.O9.bin",
+      "size": 28337,
+      "sha256": "9361725a9cccca6bc6d71d0dafb0684c2030986f295aa4db6322795cf3859fef"
+    }
+  },
+  "cpu_pairs": [
+    {
+      "control": "push ax",
+      "rejected": "push 1",
+      "expected": {
+        "0": "50",
+        "1": "50",
+        "9": "50"
+      }
+    },
+    {
+      "control": "pop ax",
+      "rejected": "pusha",
+      "expected": {
+        "0": "58",
+        "1": "58",
+        "9": "58"
+      }
+    },
+    {
+      "control": "pop bx",
+      "rejected": "popa",
+      "expected": {
+        "0": "5b",
+        "1": "5b",
+        "9": "5b"
+      }
+    },
+    {
+      "control": "shl ax,1",
+      "rejected": "shl ax,2",
+      "expected": {
+        "0": "d1e0",
+        "1": "d1e0",
+        "9": "d1e0"
+      }
+    },
+    {
+      "control": "imul bx",
+      "rejected": "imul ax,bx",
+      "expected": {
+        "0": "f7eb",
+        "1": "f7eb",
+        "9": "f7eb"
+      }
+    },
+    {
+      "control": "imul bx",
+      "rejected": "imul ax,bx,7",
+      "expected": {
+        "0": "f7eb",
+        "1": "f7eb",
+        "9": "f7eb"
+      }
+    },
+    {
+      "control": "mov ax,bx",
+      "rejected": "mov eax,ebx",
+      "expected": {
+        "0": "89d8",
+        "1": "89d8",
+        "9": "89d8"
+      }
+    },
+    {
+      "control": "inc word [bx]",
+      "rejected": "inc dword [bx]",
+      "expected": {
+        "0": "ff07",
+        "1": "ff07",
+        "9": "ff07"
+      }
+    },
+    {
+      "control": "mov ax,[bx+si]",
+      "rejected": "mov ax,[bx+bp]",
+      "expected": {
+        "0": "8b00",
+        "1": "8b00",
+        "9": "8b00"
+      }
+    },
+    {
+      "control": "mov ax,[bx+di]",
+      "rejected": "mov ax,[si+di]",
+      "expected": {
+        "0": "8b01",
+        "1": "8b01",
+        "9": "8b01"
+      }
+    },
+    {
+      "control": "mov ax,[si]",
+      "rejected": "mov ax,[si*2]",
+      "expected": {
+        "0": "8b04",
+        "1": "8b04",
+        "9": "8b04"
+      }
+    },
+    {
+      "control": "in al,dx",
+      "rejected": "insb",
+      "expected": {
+        "0": "ec",
+        "1": "ec",
+        "9": "ec"
+      }
+    },
+    {
+      "control": "out dx,al",
+      "rejected": "outsb",
+      "expected": {
+        "0": "ee",
+        "1": "ee",
+        "9": "ee"
+      }
+    },
+    {
+      "control": "push bp",
+      "rejected": "enter 8,0",
+      "expected": {
+        "0": "55",
+        "1": "55",
+        "9": "55"
+      }
+    },
+    {
+      "control": "pop bp",
+      "rejected": "leave",
+      "expected": {
+        "0": "5d",
+        "1": "5d",
+        "9": "5d"
+      }
+    },
+    {
+      "control": "cmp ax,bx",
+      "rejected": "bound ax,[bx]",
+      "expected": {
+        "0": "39d8",
+        "1": "39d8",
+        "9": "39d8"
+      }
+    },
+    {
+      "control": "cli",
+      "rejected": "lgdt [bx]",
+      "expected": {
+        "0": "fa",
+        "1": "fa",
+        "9": "fa"
+      }
+    },
+    {
+      "control": "nop",
+      "rejected": "bswap eax",
+      "expected": {
+        "0": "90",
+        "1": "90",
+        "9": "90"
+      }
+    },
+    {
+      "control": "cbw",
+      "rejected": "movzx ax,bl",
+      "expected": {
+        "0": "98",
+        "1": "98",
+        "9": "98"
+      }
+    },
+    {
+      "control": "test ax,bx",
+      "rejected": "bt ax,bx",
+      "expected": {
+        "0": "85d8",
+        "1": "85d8",
+        "9": "85d8"
+      }
+    },
+    {
+      "control": "or ax,bx",
+      "rejected": "setnz al",
+      "expected": {
+        "0": "09d8",
+        "1": "09d8",
+        "9": "09d8"
+      }
+    }
+  ],
+  "strict_cpu_divergences": [
+    {
+      "source": "mov ax,[eax]",
+      "nasm_bytes": "678b00",
+      "pynasm": "reject",
+      "reason": "32-bit effective address requires a later CPU"
+    }
+  ]
+}

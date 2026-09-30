@@ -8,19 +8,22 @@ templates, which NASM accepts even with ``CPU 8086`` in 16-bit mode.
 
 import argparse
 import concurrent.futures
-import hashlib
 import subprocess
 import tempfile
 from pathlib import Path
 
 from pynasm import AssemblyError, assemble
 
+try:  # Support both python -m tests.stress_templates and direct execution.
+    from .nasm_template_inventory import pinned_templates
+except ImportError:
+    from nasm_template_inventory import pinned_templates
 
-EXPANDED_SHA256 = "0ecceadc77bbd086c982c3e7a331e69f5756ca00c03dcde1e704e49bad79a7ca"
+
 OPERAND = {
     "rm8": "byte [bx+5]", "rm16": "word [bx+5]",
     "reg8": "cl", "reg16": "cx", "reg_al": "al", "reg_ax": "ax",
-    "reg_dx": "dx", "reg_cx": "cx", "reg_cl": "cl",
+    "reg_dx": "dx", "reg_cx": "cx", "reg_bx": "bx", "reg_cl": "cl",
     "reg_ecx": "ecx", "reg_rcx": "rcx", "reg_es": "es", "reg_cs": "cs",
     "reg_ss": "ss", "reg_ds": "ds", "reg_sreg": "ds",
     "mem8": "byte [bx+5]", "mem16": "word [bx+5]",
@@ -39,19 +42,10 @@ OPERAND = {
 
 
 def rows(expanded: bytes):
-    if hashlib.sha256(expanded).hexdigest() != EXPANDED_SHA256:
-        raise ValueError("expanded insns.dat differs from the pinned NASM 3.02 revision")
-    for line_number, line in enumerate(expanded.decode("ascii").splitlines(), 1):
-        if not line or line.startswith(";"):
+    for row in pinned_templates(expanded):
+        if "8086" not in row.flags or any(flag in row.flags for flag in ("APX", "FPU", "OPT")):
             continue
-        fields = line.split()
-        if len(fields) < 4:
-            continue
-        flags = fields[-1].split(",")
-        if "8086" not in flags or any(flag in flags for flag in ("APX", "FPU", "OPT")):
-            continue
-        mnemonic, signature = fields[:2]
-        yield line_number, mnemonic, signature
+        yield row.line, row.mnemonic, row.operands
 
 
 def case_for(mnemonic: str, signature: str) -> str:
@@ -79,7 +73,10 @@ def run(expanded_path: Path, nasm: Path, workers: int = 8) -> tuple[int, int]:
             reference = subprocess.run([str(nasm), "-f", "bin", f"-O{level}",
                                         "-o", str(output_file), str(input_file)],
                                        capture_output=True, text=True, timeout=3)
-            expected = output_file.read_bytes() if reference.returncode == 0 else None
+            if reference.returncode:
+                raise AssertionError(f"NASM rejected legal template at line {line_number}: "
+                                     f"{case!r}: {reference.stderr}")
+            expected = output_file.read_bytes()
         try:
             actual = assemble(source, compatibility="nasm3", optimize=level)
         except AssemblyError:
@@ -91,7 +88,7 @@ def run(expanded_path: Path, nasm: Path, workers: int = 8) -> tuple[int, int]:
                     f"Python={actual_text} NASM={expected_text}", expected is not None)
         return None, expected is not None
 
-    work = ((level, *row) for level in (0, 9) for row in templates)
+    work = ((level, *row) for level in (0, 1, 9) for row in templates)
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         results = list(executor.map(compare, work))
     mismatches = [message for message, _ in results if message]
