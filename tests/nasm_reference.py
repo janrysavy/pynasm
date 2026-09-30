@@ -41,7 +41,7 @@ def reference(nasm: Path, source: str, level: int, *,
                                     capture_output=True, text=True, timeout=5)
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise OracleFailure(str(exc)) from exc
-        if result.returncode == 1 and "error:" in result.stderr:
+        if result.returncode == 1 and re.search(r"(?:error|fatal):", result.stderr):
             return None
         if result.returncode:
             raise OracleFailure(f"NASM process failed ({result.returncode}): {result.stderr}")

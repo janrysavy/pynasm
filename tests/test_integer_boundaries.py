@@ -100,9 +100,10 @@ class OracleContractTests(unittest.TestCase):
         with patch("nasm_reference.subprocess.run", side_effect=TimeoutExpired("nasm", 5)):
             with self.assertRaises(OracleFailure):
                 reference(Path("nasm"), "nop", 0)
-        with patch("nasm_reference.subprocess.run", return_value=
-                   CompletedProcess([], 1, "", "case.asm: error: invalid operands")):
-            self.assertIsNone(reference(Path("nasm"), "bad", 0))
+        for diagnostic in ("error: invalid operands", "fatal: invalid section attributes"):
+            with self.subTest(diagnostic=diagnostic), patch("nasm_reference.subprocess.run",
+                    return_value=CompletedProcess([], 1, "", "case.asm: " + diagnostic)):
+                self.assertIsNone(reference(Path("nasm"), "bad", 0))
 
     def test_wrong_version_is_not_an_oracle(self):
         for version in ("NASM version 3.02.1", "NASM version 3.01", "not nasm"):
