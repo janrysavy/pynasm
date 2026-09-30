@@ -764,7 +764,8 @@ class SourceReaderMixin:
                         if not origin.unresolved: self._pp_origin = origin.number
                     equ = re.match(r"(?i)^\s*([A-Za-z_.$?@][\w.$?@~#]*)\s*:?\s+equ\b\s*(.+)$", candidate)
                     if equ:
-                        value = self._pp_eval(equ.group(2), definitions)
+                        value = self._pp_eval(equ.group(2), definitions,
+                                              defer_location=self.compatibility == 'nasm3')
                         if not value.unresolved: self._pp_symbols[equ.group(1)] = value.number
                     elif (remaining and not org and not dollarhex_directive and
                           not float_directive and not float_macro and

@@ -9,6 +9,7 @@ from ._preprocessor_source import SourceReaderMixin
 from ._instruction_encoding import InstructionEncodingMixin
 from .listing import ListingLine
 from ._layout import Layout, combine_layout
+from .expression import _bases
 
 
 class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMixin, InstructionEncodingMixin):
@@ -29,6 +30,8 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self._previous_symbol_sections: dict[str, str | None] = {}
         self._symbol_relocations: dict[str, int] = {}
         self._previous_symbol_relocations: dict[str, int] = {}
+        self._symbol_bases: dict[str, tuple[tuple[str, int], ...]] = {}
+        self._previous_symbol_bases: dict[str, tuple[tuple[str, int], ...]] = {}
         self._symbol_layouts: dict[str, Layout] = {}
         self._previous_symbol_layouts: dict[str, Layout] = {}
         self._symbol_unresolved: dict[str, bool] = {}
@@ -126,34 +129,63 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
             return Value(self.symbols[name], unresolved=self._symbol_unresolved.get(name, False),
                          symbolic=True, section=self._symbol_sections.get(name),
                          relocation=self._symbol_relocations.get(name, 0),
-                         layout=self._symbol_layouts.get(name))
+                         layout=self._symbol_layouts.get(name),
+                         bases=self._symbol_bases.get(name))
         if name in self._previous:
             return Value(self._previous[name],
                          self._pass == 0 or self._previous_symbol_unresolved.get(name, False), True,
                          self._previous_symbol_sections.get(name),
                          self._previous_symbol_relocations.get(name, 0),
-                         self._previous_symbol_layouts.get(name), forward=True)
+                         self._previous_symbol_layouts.get(name), forward=True,
+                         bases=self._previous_symbol_bases.get(name))
         self._missing.add(name)
         return Value(0, True, True, layout=None, forward=True)
 
-    def _eval(self, expression: str) -> Value:
-        location = Value(self._line_address, relocation=1,
+    def _eval(self, expression: str, *, location_known: bool = True) -> Value:
+        location = Value(self._line_address, relocation=0 if self._section is None else 1,
                          layout=() if self._section is None else
                          ((self._section.name, self._line_index, 1),))
+        if not location_known:
+            # The initial EQU scan has not applied ORG/ABSOLUTE/sections yet.
+            location = Value(0, unresolved=True, layout=None)
         try: return evaluate(expression, self._lookup, location,
                              self._integer_function, dollarhex=self._dollarhex,
                              strict_scalars=self.compatibility == 'nasm3')
         except ExpressionError as exc: raise self._error(str(exc)) from exc
 
+    def _equ_value(self, value: Value) -> Value:
+        """NASM EQU stores one segment/offset, not a self-relative vector."""
+        if self.compatibility != 'nasm3' or value.unresolved:
+            return value
+        bases = _bases(value)
+        positive = [(section, coefficient) for section, coefficient in bases if coefficient > 0]
+        negative = [(section, coefficient) for section, coefficient in bases if coefficient < 0]
+        current = self._section.name if self._section is not None else None
+        self._require(len(positive) <= 1 and all(c == 1 for _, c in positive) and
+                      (not negative or negative == [(current, -1)]),
+                      "EQU expression is not relocatable")
+        if negative:
+            # parser.c marks subtraction of the current segment as relative;
+            # assemble.c define_equ() keeps the positive segment and offset.
+            value = replace(value, number=value.number + self._section.base,
+                            relocation=len(positive), bases=tuple(positive),
+                            section=positive[0][0] if positive else None,
+                            layout=combine_layout('+', value.layout, ((current, -1, 1),),
+                                                  value.number, self._section.base))
+        return value
+
     def _pp_eval(self, expression: str, definitions: dict[str, str], *,
-                 allow_trailing: bool = False) -> Value:
+                 allow_trailing: bool = False, defer_location: bool = False) -> Value:
         expanded = self._expand_define(expression, definitions)
         def lookup(name: str) -> Value:
             if name in self._pp_symbols: return Value(self._pp_symbols[name])
             if name == "$$": return Value(self._pp_origin)
             if name in self._pp_known_labels: return Value(self._pp_known_labels[name])
             return Value(0, True)
-        try: return evaluate(expanded, lookup, functions=self._integer_function,
+        try: return evaluate(expanded, lookup,
+                             location=Value(0, unresolved=True, layout=None)
+                             if defer_location else 0,
+                             functions=self._integer_function,
                              allow_trailing=allow_trailing, dollarhex=self._dollarhex,
                              strict_scalars=self.compatibility == 'nasm3')
         except ExpressionError as exc: raise self._error(str(exc)) from exc
@@ -367,6 +399,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
         self._org_this_pass = None
         self._global = ""
         self.symbols = {}
+        self._symbol_bases = {}
         self._symbol_layouts = {}
         self._symbol_unresolved = {}
         self._symbol_sections = {}
@@ -393,11 +426,12 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 name = colon_equ.group(1)
                 key = self._key(name)
                 if key in self.symbols: raise self._error(f"duplicate symbol {name}")
-                value = self._eval(colon_equ.group(2))
+                value = self._equ_value(self._eval(colon_equ.group(2)))
                 self.symbols[key] = value.number
                 self._symbol_sections[key] = value.section
                 self._symbol_relocations[key] = value.relocation
                 self._symbol_layouts[key] = value.layout
+                self._symbol_bases[key] = _bases(value)
                 self._symbol_unresolved[key] = value.unresolved
                 sizes.append(0)
                 continue
@@ -422,11 +456,12 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
             if equ:
                 key = self._key(equ.group(1))
                 if key in self.symbols: raise self._error(f"duplicate symbol {key}")
-                value = self._eval(equ.group(2))
+                value = self._equ_value(self._eval(equ.group(2)))
                 self.symbols[key] = value.number
                 self._symbol_sections[key] = value.section
                 self._symbol_relocations[key] = value.relocation
                 self._symbol_layouts[key] = value.layout
+                self._symbol_bases[key] = _bases(value)
                 self._symbol_unresolved[key] = value.unresolved
                 sizes.append(0)
                 continue
@@ -522,6 +557,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
     def assemble(self, source: str, *, filename: str = "<string>") -> bytes:
         self.listing = ()
         self._previous = {}
+        self._previous_symbol_bases = {}
         self._previous_symbol_layouts = {}
         self._previous_symbol_unresolved = {}
         self._previous_symbol_sections = {}
@@ -627,6 +663,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     text = text.replace(marker, replacement)
                 self._lines[at] = SourceLine(text, line.filename, line.number)
         self.symbols = {}
+        self._symbol_bases = {}
         self._symbol_layouts = {}
         self._symbol_unresolved = {}
         self._symbol_sections = {}
@@ -641,13 +678,16 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 candidate = candidate[1:-1].strip()
             equ = re.match(r"(?i)^([A-Za-z_.$?@][\w.$?@~#]*)\s*:?\s+equ\b\s*(.+)$", candidate)
             if equ:
-                value = self._eval(equ.group(2))
+                value = self._eval(equ.group(2),
+                                   location_known=self.compatibility != 'nasm3')
                 if not value.unresolved:
+                    value = self._equ_value(value)
                     key = self._key(equ.group(1))
                     self.symbols[key] = value.number
                     self._symbol_sections[key] = value.section
                     self._symbol_relocations[key] = value.relocation
                     self._symbol_layouts[key] = value.layout
+                    self._symbol_bases[key] = _bases(value)
                     self._symbol_unresolved[key] = value.unresolved
         previous_sizes: list[int] = []
         older_sizes: list[int] = []
@@ -677,6 +717,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                     self.symbols == previous_symbols and
                     self._symbol_relocations == previous_relocations and
                     self._symbol_layouts == self._previous_symbol_layouts and
+                    self._symbol_bases == self._previous_symbol_bases and
                     self._line_size_layouts == self._previous_line_size_layouts and
                     self._symbol_unresolved == self._previous_symbol_unresolved and
                     section_state == old_section_state):
@@ -701,6 +742,7 @@ class Assembler(SourceReaderMixin, MacroExpansionMixin, PreprocessorDirectiveMix
                 return output
             self._previous = dict(self.symbols)
             self._previous_symbol_layouts = dict(self._symbol_layouts)
+            self._previous_symbol_bases = dict(self._symbol_bases)
             self._previous_symbol_unresolved = dict(self._symbol_unresolved)
             self._previous_symbol_sections = dict(self._symbol_sections)
             self._previous_symbol_relocations = dict(self._symbol_relocations)
