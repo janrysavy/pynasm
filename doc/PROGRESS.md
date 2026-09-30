@@ -1,5 +1,14 @@
 # NASM 8086/8088 compatibility progress
 
+## 2026-09-30 additional verified test slice
+
+[The source-ledger and integer-boundary slice](NASM_ROADMAP_TESTS.md) adds a
+524-row inventory and 47,112 portable integer-case comparisons. New opt-in
+matrices pass 107,940 comparisons for each CPU alias. Local full suite: 159
+methods, 158 passed and one optional corpus skipped. Instruction completeness
+remains open; the inventory explicitly retains untested/excluded rows.
+
+
 Updated 2026-09-27. The target is a pure-Python assembler with full NASM
 compatibility for 8086/8088 source. The current implementation emits flat
 binaries. NASM 3.02 is the pinned live oracle for the `nasm3` profile;
