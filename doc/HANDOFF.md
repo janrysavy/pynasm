@@ -1,17 +1,16 @@
-# Handoff - assembly-aware preprocessing, 2026-09-30
+# Handoff - location and count fixes validated, 2026-09-30
 
-FINISHED locally: issue #19 reproduced against NASM 3.02 and fixed with
-per-pass streaming source expansion and actual location/relocation metadata.
-294 new independent comparisons pass (234 complete binaries, 60 rejections).
-Full native suite: 228 pass/one skip; portable: 204 pass/25 explicit skips.
-Evidence and semantics: doc/PREPROCESSOR_LOCATION.md and linked receipt.
+FINISHED locally: issue #19 reproduced and fixed through assembly-aware
+preprocessing. 294 captured NASM comparisons pass. PRO PR21-23 are integrated
+into this branch with their original commit history; 20 combined focused
+methods and the 244-method native suite pass (one optional corpus skip).
+The complete DOSCTRL worker matches native NASM, including its historical
+3,091-byte hash. Evidence: doc/PREPROCESSOR_LOCATION.md and linked receipt.
 
-WIP publication: push this slice and inspect final Windows/Linux CI before
-merging. PRO PR21 is integrated locally: its four methods pass against native NASM.
-PRO PR22 also passes its four native NASM methods and is integrated locally.
-PRO PR23 is integrated locally: all 20 combined focused methods pass with NASM.
-Only merge conflict was the two required imports, both retained. Full combined
-native suite and final Windows/Linux CI remain WIP; do not merge before those pass. Parent pin still refers to the prior master.
+WIP: PR24 awaits final Windows/Linux CI on this documentation head, then
+merge and remove integrated feature/transfer branches. Parent pin upgrade
+and full parent parity/static validation remain WIP. Do not claim new Pascal
+translation or gameplay evidence from these assembler-only checks.
 
-Earlier PR16-18 work was integrated through PR20. These assembler checks
-are not Pascal/game-mechanics proof; parent parity gates follow pin integration.
+Earlier PR16-18 were integrated through PR20. Use one bounded game-owned
+ASM-to-Pascal routine for the next PRO run after parent synchronization.

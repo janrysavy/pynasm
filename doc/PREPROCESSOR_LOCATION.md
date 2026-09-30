@@ -33,3 +33,11 @@ the pinned matrix and warning/listing/reuse regressions run in portable CI.
 Local Windows verification: 229 methods with NASM enabled, 228 passed and one
 optional corpus skipped; portable run: 204 passed and 25 explicit optional
 skips. Both complete logs are retained in `PREPROCESSOR_LOCATION_RECEIPT.json.gz`.
+
+The integration also preserves PRO PR21 (scalar TIMES), PR22 (scalar DUP/RES)
+and PR23 (parse-only zero TIMES). All 20 combined focused methods pass against
+NASM; the full combined suite has 244 methods, 243 passed/one optional skip.
+The complete DOSCTRL worker still matches native NASM: 3,091 bytes, SHA-256
+`183d5b74557a5f9b599de89cf528dc3c030a8f7ec3d93f47268a617ded278da6`.
+Combined logs are retained in the same receipt. The transfer-only branch's
+publishing workflows are not part of the integration.
