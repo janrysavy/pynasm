@@ -8,7 +8,8 @@ Evidence and semantics: doc/PREPROCESSOR_LOCATION.md and linked receipt.
 
 WIP publication: push this slice and inspect final Windows/Linux CI before
 merging. PRO PR21 is integrated locally: its four methods pass against native NASM.
-PR22/23 still need separate review and checks. Parent pin still refers to the prior master.
+PRO PR22 also passes its four native NASM methods and is integrated locally.
+PR23 still needs separate review and checks. Parent pin still refers to the prior master.
 
 Earlier PR16-18 work was integrated through PR20. These assembler checks
 are not Pascal/game-mechanics proof; parent parity gates follow pin integration.

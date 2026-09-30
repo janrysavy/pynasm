@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ._assembler_syntax import *
 from ._layout import combine_layout, scale_layout
+from .expression import _bases
 
 
 class InstructionEncodingMixin:
@@ -581,6 +582,8 @@ class InstructionEncodingMixin:
                 amount = self._eval(match.group(1))
                 self._require(not amount.unresolved and amount.number >= 0, "invalid dup count")
                 if self.compatibility == "nasm3":
+                    self._require(amount.relocation == 0 and not _bases(amount),
+                                  "DUP count must be scalar")
                     final_item = _split(match.group(2))[-1]
                     self._require(not re.match(r"(?is)^.+?\s+dup\s*\(.*\)$", final_item),
                                   "nested DUP cannot end a data list in this NASM profile")
@@ -778,7 +781,8 @@ class InstructionEncodingMixin:
                           (count.number >= 0 or self.compatibility == "nasm3"),
                           "invalid reserve count")
             self._require(self.compatibility != "nasm3" or count.unresolved or
-                          count.relocation == 0, "reserve count must be scalar")
+                          (count.relocation == 0 and not _bases(count)),
+                          "reserve count must be scalar")
             unit = {"resb": 1, "resw": 2, "resd": 4, "resq": 8,
                     "rest": 10, "reso": 16, "resy": 32, "resz": 64}[mnemonic]
             self._size_layout = scale_layout(count.layout, unit) if count.number >= 0 else None
