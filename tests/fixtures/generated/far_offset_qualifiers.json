@@ -1,0 +1,517 @@
+{
+  "reference": "NASM version 3.02 compiled on Jun 28 2026",
+  "cases": [
+    {
+      "source": "cpu 8086\nbits 16\ncall 0x133a:0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall 0x133a:word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall 0x133a:strict word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall 0x133a:near 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall 0x133a:far 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall 0x133a:short 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall word 0x133a:0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall word 0x133a:word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall word 0x133a:strict word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall word 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall word 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall word 0x133a:near 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall word 0x133a:far 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall word 0x133a:short 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall strict word 0x133a:0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall strict word 0x133a:word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall strict word 0x133a:strict word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall strict word 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall strict word 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall strict word 0x133a:near 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall strict word 0x133a:far 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall strict word 0x133a:short 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall byte 0x133a:0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall byte 0x133a:word 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall byte 0x133a:strict word 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall byte 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall byte 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall byte 0x133a:near 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall byte 0x133a:far 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall byte 0x133a:short 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall dword 0x133a:0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall dword 0x133a:word 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall dword 0x133a:strict word 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall dword 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall dword 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall dword 0x133a:near 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall dword 0x133a:far 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall dword 0x133a:short 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall near 0x133a:0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall near 0x133a:word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall near 0x133a:strict word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall near 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall near 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall near 0x133a:near 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall near 0x133a:far 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall near 0x133a:short 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall far 0x133a:0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall far 0x133a:word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall far 0x133a:strict word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall far 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall far 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall far 0x133a:near 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall far 0x133a:far 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall far 0x133a:short 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall short 0x133a:0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall short 0x133a:word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall short 0x133a:strict word 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall short 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall short 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall short 0x133a:near 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall short 0x133a:far 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\ncall short 0x133a:short 0x934\n",
+      "hex": "9a34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp 0x133a:0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp 0x133a:word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp 0x133a:strict word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp 0x133a:near 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp 0x133a:far 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp 0x133a:short 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp word 0x133a:0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp word 0x133a:word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp word 0x133a:strict word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp word 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp word 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp word 0x133a:near 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp word 0x133a:far 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp word 0x133a:short 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp strict word 0x133a:0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp strict word 0x133a:word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp strict word 0x133a:strict word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp strict word 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp strict word 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp strict word 0x133a:near 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp strict word 0x133a:far 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp strict word 0x133a:short 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp byte 0x133a:0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp byte 0x133a:word 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp byte 0x133a:strict word 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp byte 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp byte 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp byte 0x133a:near 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp byte 0x133a:far 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp byte 0x133a:short 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp dword 0x133a:0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp dword 0x133a:word 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp dword 0x133a:strict word 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp dword 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp dword 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp dword 0x133a:near 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp dword 0x133a:far 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp dword 0x133a:short 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp near 0x133a:0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp near 0x133a:word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp near 0x133a:strict word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp near 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp near 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp near 0x133a:near 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp near 0x133a:far 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp near 0x133a:short 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp far 0x133a:0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp far 0x133a:word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp far 0x133a:strict word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp far 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp far 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp far 0x133a:near 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp far 0x133a:far 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp far 0x133a:short 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp short 0x133a:0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp short 0x133a:word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp short 0x133a:strict word 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp short 0x133a:byte 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp short 0x133a:dword 0x934\n",
+      "hex": null
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp short 0x133a:near 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp short 0x133a:far 0x934\n",
+      "hex": "ea34093a13"
+    },
+    {
+      "source": "cpu 8086\nbits 16\njmp short 0x133a:short 0x934\n",
+      "hex": "ea34093a13"
+    }
+  ]
+}

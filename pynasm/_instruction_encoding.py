@@ -169,7 +169,14 @@ class InstructionEncodingMixin:
         if ":" in text:
             far = _split(text, ":")
             if len(far) == 2:
-                return Operand("far", width, expr=self._eval(far[1]),
+                # NASM permits qualifiers on both halves of segment:offset.
+                # Parse the offset as an operand, rather than as an expression
+                # whose first token could be WORD or STRICT.
+                offset = self._operand(far[1], check_encoding=check_encoding)
+                self._require(offset.kind == "imm", "far offset must be an immediate")
+                self._require(not check_encoding or offset.width in (None, 16),
+                              "invalid 8086 far offset size")
+                return Operand("far", width, expr=offset.expr,
                                far_segment=self._eval(far[0]), qualifier=qualifier,
                                strict=strict, distance_flags=frozenset(distance_flags))
         return Operand("imm", width, expr=self._eval(text), qualifier=qualifier,
@@ -364,6 +371,7 @@ class InstructionEncodingMixin:
                   self.compatibility == "nasm09839"):
                 op.qualifier = "near"
             if op.kind == "far":
+                self._require(op.width in (None, 16))
                 return bytes((0xEA if mnemonic == "jmp" else 0x9A,)) + _word(op.expr.number, 2) + _word(op.far_segment.number, 2)
             if op.kind in ("reg", "mem"):
                 self._require(op.width in (None, 16))

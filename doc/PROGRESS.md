@@ -1,5 +1,11 @@
 # NASM 8086/8088 compatibility progress
 
+## 2026-10-03 far immediate offset qualifiers
+
+[The Pyro rebuild regression](FAR_OFFSET_QUALIFIERS.md) adds 128 captured
+NASM outcomes and fixes qualified segment:offset parsing. Full local suite:
+259 passed, one optional skip; both assemblers reproduce the complete Pyro EXE.
+
 ## 2026-09-30 whole-program interaction results
 
 [The P0.2 slice](NASM_LAYOUT_TESTS.md) adds 26 accepted whole-program fixtures,
